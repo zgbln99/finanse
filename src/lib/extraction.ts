@@ -86,9 +86,28 @@ const JSON_SCHEMA = {
   ],
 } as const;
 
-export async function extractInvoiceFields(ocrText: string): Promise<ExtractionResult> {
+export async function extractInvoiceFields(
+  ocrText: string,
+  images: string[] = [],
+): Promise<ExtractionResult> {
   const openai = getOpenAI();
   const trimmed = ocrText.slice(0, 16_000); // keep prompt bounded
+
+  // Multimodal: give the model the page images plus the OCR text. The model
+  // reads the invoice directly, which is far more robust than OCR text alone
+  // for scans, stamps, tables and poor-quality documents.
+  const userContent: Array<Record<string, unknown>> = [
+    {
+      type: "text",
+      text:
+        `Analysiere die folgende Eingangsrechnung. Nutze VORRANGIG die beigefügten Bilder der Rechnung; ` +
+        `der OCR-Text dient als Ergänzung (kann Fehler enthalten).\n\nOCR-Text:\n"""\n${trimmed}\n"""`,
+    },
+    ...images.slice(0, 3).map((b64) => ({
+      type: "image_url",
+      image_url: { url: `data:image/png;base64,${b64}`, detail: "high" },
+    })),
+  ];
 
   const completion = await openai.chat.completions.create({
     model: OPENAI_MODEL,
@@ -103,10 +122,7 @@ export async function extractInvoiceFields(ocrText: string): Promise<ExtractionR
     },
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `OCR-Text der Eingangsrechnung:\n"""\n${trimmed}\n"""`,
-      },
+      { role: "user", content: userContent as never },
     ],
   });
 

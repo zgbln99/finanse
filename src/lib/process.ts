@@ -52,8 +52,8 @@ export async function processDocument(documentId: string) {
   });
 
   try {
-    // --- OCR ---
-    const ocr = await runPdfOcr(doc.sourcePath);
+    // --- OCR --- (prefer the managed storage copy)
+    const ocr = await runPdfOcr(doc.storedPath ?? doc.sourcePath);
     await prisma.document.update({
       where: { id: documentId },
       data: { ocrText: ocr.text, ocrEngine: ocr.engine, pageCount: ocr.pageCount },
@@ -73,7 +73,7 @@ export async function processDocument(documentId: string) {
       return;
     }
 
-    let extracted = await extractInvoiceFields(ocr.text);
+    let extracted = await extractInvoiceFields(ocr.text, ocr.images);
     extracted = await applyCorrectionMemory(extracted);
     await logAudit({ documentId, action: "ai_extracted", actor: "ai", meta: extracted as object });
 

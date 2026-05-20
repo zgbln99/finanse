@@ -27,9 +27,10 @@ export function getIngestQueue(): Queue<IngestJobData> {
   return queue;
 }
 
-export async function enqueueIngest(data: IngestJobData) {
+export async function enqueueIngest(data: IngestJobData, opts?: { jobId?: string }) {
   return getIngestQueue().add("ingest", data, {
     // Dedup at queue level by path; checksum dedup happens in the worker.
-    jobId: `ingest-${Buffer.from(data.filePath).toString("base64url")}`,
+    // A custom jobId (e.g. for reprocessing) bypasses that de-duplication.
+    jobId: opts?.jobId ?? `ingest-${Buffer.from(data.filePath).toString("base64url")}`,
   });
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, ScanText, Save, History, Sparkles, Link2, Copy, Check, X } from "lucide-react";
+import { ArrowLeft, FileText, ScanText, Save, History, Sparkles, Link2, Copy, Check, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, TagChip } from "@/components/ui/badge";
@@ -89,6 +89,13 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function reprocess() {
+    setSaving(true);
+    const res = await fetch(`/api/invoices/${doc.id}/reprocess`, { method: "POST" });
+    if (res.ok) setDoc((d: Detail) => ({ ...d, status: "pending" }));
+    setSaving(false);
   }
 
   const confidencePct = doc.confidence != null ? Math.round(doc.confidence * 100) : null;
@@ -247,6 +254,9 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
               </Button>
               <Button onClick={() => save(true)} disabled={saving}>
                 Geprüft & freigeben
+              </Button>
+              <Button onClick={reprocess} disabled={saving} variant="tertiary" title="OCR + AI erneut ausführen">
+                <RefreshCw className="size-4" /> Neu verarbeiten
               </Button>
             </div>
             </fieldset>

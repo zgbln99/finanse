@@ -1,88 +1,118 @@
-import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const exec = promisify(execFile);
 
 export type OcrResult = {
   text: string;
   engine: string;
   pageCount: number | null;
+  /** Base64-encoded PNGs of the first pages, for vision-based AI extraction. */
+  images: string[];
 };
 
+const MAX_RENDER_PAGES = 3;
+const RENDER_DPI = 220;
+
 /**
- * Extract text from a PDF. Most B2B invoices are digital PDFs with a real text
- * layer, so we read that first (fast, lossless). For scanned/image-only PDFs
- * with no usable text layer we fall back to Tesseract OCR on the rendered page
- * images.
+ * OCR pipeline for invoices:
+ *  1. Read the digital text layer with pdf-parse (instant, lossless).
+ *  2. Always rasterize the first pages (poppler `pdftoppm`) — used both for the
+ *     vision model and as Tesseract input.
+ *  3. If the text layer is weak (scanned PDF), OCR the page images with the
+ *     system Tesseract (German + English).
  */
-export async function runPdfOcr(filePath: string, lang = process.env.OCR_LANG ?? "deu+eng"): Promise<OcrResult> {
+export async function runPdfOcr(
+  filePath: string,
+  lang = process.env.OCR_LANG ?? "deu+eng",
+): Promise<OcrResult> {
   const buf = await readFile(filePath);
 
-  // 1) Digital text layer via pdf-parse.
-  const { default: pdfParse } = await import("pdf-parse");
-  const parsed = await pdfParse(buf);
-  const text = (parsed.text ?? "").trim();
-  const pageCount = parsed.numpages ?? null;
-
-  if (text.replace(/\s/g, "").length >= 40) {
-    return { text, engine: "pdf-text", pageCount };
+  // 1) Digital text layer.
+  let text = "";
+  let pageCount: number | null = null;
+  try {
+    const { default: pdfParse } = await import("pdf-parse");
+    const parsed = await pdfParse(buf);
+    text = (parsed.text ?? "").trim();
+    pageCount = parsed.numpages ?? null;
+  } catch {
+    /* corrupt text layer — fall back to OCR below */
   }
 
-  // 2) Fallback: rasterize + Tesseract for scanned documents.
-  try {
-    const images = await rasterizePdf(buf);
-    if (images.length > 0) {
-      const ocrText = await ocrImages(images, lang);
-      if (ocrText.trim().length > 0) {
-        return { text: ocrText.trim(), engine: `tesseract:${lang}`, pageCount: pageCount ?? images.length };
+  // 2) Rasterize first pages.
+  const rendered = await rasterize(buf);
+  const images = rendered.map((r) => r.buffer.toString("base64"));
+
+  // 3) Tesseract fallback when the text layer is too thin.
+  let engine = "pdf-text";
+  if (text.replace(/\s/g, "").length < 60 && rendered.length > 0) {
+    const ocrParts: string[] = [];
+    for (const r of rendered) {
+      try {
+        ocrParts.push(await tesseract(r.path, lang));
+      } catch {
+        /* tesseract missing or failed — keep going */
       }
     }
-  } catch (err) {
-    // Rasterization may be unavailable in minimal environments; surface the
-    // digital-text result (possibly empty) and let the review queue catch it.
-    console.warn("[ocr] tesseract fallback failed:", (err as Error).message);
+    const ocrText = ocrParts.join("\n\n").trim();
+    if (ocrText.length > text.length) {
+      text = ocrText;
+      engine = `tesseract:${lang}`;
+    }
   }
 
-  return { text, engine: "pdf-text:empty", pageCount };
+  await cleanup(rendered);
+  return { text, engine, pageCount: pageCount ?? (rendered.length || null), images };
 }
 
-/** Render PDF pages to raw PNG buffers using pdfjs + node canvas if available. */
-async function rasterizePdf(buf: Buffer): Promise<Buffer[]> {
-  // pdfjs needs a canvas factory; we only attempt this if `canvas` is present.
-  let createCanvas: ((w: number, h: number) => any) | null = null;
+type Rendered = { path: string; buffer: Buffer; dir: string };
+
+async function rasterize(buf: Buffer): Promise<Rendered[]> {
+  let dir: string;
   try {
-    // Optional native dependency. Absent in the slim default image.
-    const mod = await import("canvas" as string);
-    createCanvas = mod.createCanvas;
+    dir = await mkdtemp(path.join(tmpdir(), "ocr-"));
   } catch {
     return [];
   }
-  if (!createCanvas) return [];
-  const make = createCanvas;
-
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true } as any).promise;
-  const out: Buffer[] = [];
-  const maxPages = Math.min(doc.numPages, 10);
-  for (let i = 1; i <= maxPages; i++) {
-    const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = make(viewport.width, viewport.height);
-    const ctx = canvas.getContext("2d");
-    await page.render({ canvasContext: ctx as any, viewport }).promise;
-    out.push(canvas.toBuffer("image/png"));
+  const input = path.join(dir, "in.pdf");
+  await writeFile(input, buf);
+  try {
+    await exec("pdftoppm", [
+      "-png",
+      "-r", String(RENDER_DPI),
+      "-f", "1",
+      "-l", String(MAX_RENDER_PAGES),
+      input,
+      path.join(dir, "page"),
+    ]);
+  } catch {
+    // poppler not installed (e.g. local dev) — no images, text layer only.
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+    return [];
+  }
+  const files = (await readdir(dir))
+    .filter((f) => f.endsWith(".png"))
+    .sort();
+  const out: Rendered[] = [];
+  for (const f of files.slice(0, MAX_RENDER_PAGES)) {
+    const p = path.join(dir, f);
+    out.push({ path: p, buffer: await readFile(p), dir });
   }
   return out;
 }
 
-async function ocrImages(images: Buffer[], lang: string): Promise<string> {
-  const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker(lang);
-  try {
-    const parts: string[] = [];
-    for (const img of images) {
-      const { data } = await worker.recognize(img);
-      parts.push(data.text);
-    }
-    return parts.join("\n\n");
-  } finally {
-    await worker.terminate();
-  }
+async function tesseract(imagePath: string, lang: string): Promise<string> {
+  const { stdout } = await exec("tesseract", [imagePath, "stdout", "-l", lang], {
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  return stdout;
+}
+
+async function cleanup(rendered: Rendered[]) {
+  const dirs = new Set(rendered.map((r) => r.dir));
+  for (const d of dirs) await rm(d, { recursive: true, force: true }).catch(() => {});
 }
