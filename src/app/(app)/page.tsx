@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Repeat, Receipt } from "lucide-react";
 import { getDashboardStats } from "@/lib/analytics";
+import { getActiveYear } from "@/lib/year";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { CostHeatmap } from "@/components/dashboard/heatmap";
 import {
@@ -16,13 +17,14 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const s = await getDashboardStats();
+  const year = await getActiveYear();
+  const s = await getDashboardStats(year);
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="eyebrow">Controlling Cockpit</div>
+          <div className="eyebrow">Controlling Cockpit · {year}</div>
           <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">Kostenübersicht</h1>
         </div>
         {s.kpis.reviewCount > 0 && (

@@ -21,6 +21,13 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(100, Number(sp.get("pageSize") ?? "25"));
 
   const where: Prisma.DocumentWhereInput = {};
+
+  // Year scope from the global switcher cookie (invoices dated in that year).
+  const yearCookie = Number(req.cookies.get("cockpit_year")?.value);
+  if (Number.isInteger(yearCookie) && yearCookie >= 2000 && yearCookie <= 2100) {
+    where.invoiceDate = { gte: new Date(yearCookie, 0, 1), lt: new Date(yearCookie + 1, 0, 1) };
+  }
+
   if (status) where.status = status;
   if (type) where.documentType = type;
   if (vendor) where.vendorName = { contains: vendor, mode: "insensitive" };

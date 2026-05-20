@@ -118,6 +118,32 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Pulls PDFs from Google Drive into the shared inbox volume on a schedule.
+  # Folder convention: one subfolder per business year (e.g. Rechnungen/2026).
+  # The current year is synced automatically; set RCLONE_YEAR to re-import an
+  # archive year once. Put your rclone.conf into ./rclone/ before starting.
+  rclone:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    environment:
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-gdrive}
+      RCLONE_BASE: ${RCLONE_BASE:-Rechnungen}
+      RCLONE_INTERVAL: ${RCLONE_INTERVAL:-300}
+      RCLONE_YEAR: ${RCLONE_YEAR:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          YEAR="$${RCLONE_YEAR:-$$(date +%Y)}"
+          echo "[rclone] sync $${RCLONE_REMOTE}:$${RCLONE_BASE}/$${YEAR} -> /data/inbox"
+          rclone copy "$${RCLONE_REMOTE}:$${RCLONE_BASE}/$${YEAR}" /data/inbox \
+            --include "*.pdf" --create-empty-src-dirs=false || echo "[rclone] sync failed (check ./rclone/rclone.conf)"
+          sleep "$${RCLONE_INTERVAL}"
+        done
+    volumes:
+      - ./rclone:/config/rclone
+      - ingest:/data/inbox
+
 volumes:
   pgdata:
   redisdata:

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronDown, CheckCircle2, Circle, ExternalLink, CalendarRange } from "lucide-react";
+import { ChevronDown, CheckCircle2, Circle, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge, TagChip } from "@/components/ui/badge";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -21,33 +20,19 @@ export function KwClient({
   gf1Name: string;
   gf2Name: string;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState<number | null>(overview.groups[0]?.week ?? null);
 
   const fullyApproved = overview.totalCount - overview.openCount;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="eyebrow">Geschäftsführungs-Freigabe</div>
-          <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">KW-Kontrolle</h1>
-          <p className="mt-1 text-[14px] text-mute">
-            Eingangsrechnungen je Kalenderwoche prüfen. Freigabe durch {gf1Name} und {gf2Name}.
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-[14px] text-body">
-          <CalendarRange className="size-4 text-mute" /> Jahr
-          <select
-            value={overview.year}
-            onChange={(e) => router.push(`/kw?year=${e.target.value}`)}
-            className="h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink"
-          >
-            {overview.years.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
+      <header>
+        <div className="eyebrow">Geschäftsführungs-Freigabe · {overview.year}</div>
+        <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">KW-Kontrolle</h1>
+        <p className="mt-1 text-[14px] text-mute">
+          Eingangsrechnungen je Kalenderwoche prüfen. Freigabe durch {gf1Name} und {gf2Name}.
+          Jahr wechseln oben rechts.
+        </p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

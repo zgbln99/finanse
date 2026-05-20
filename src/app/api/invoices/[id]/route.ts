@@ -25,6 +25,7 @@ const PatchSchema = z.object({
     .optional(),
   isRecurring: z.boolean().optional(),
   reviewed: z.boolean().optional(),
+  note: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -57,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const scalarFields: (keyof typeof body)[] = [
     "vendorName", "city", "street", "postalCode", "country",
     "invoiceNumber", "currency", "documentType", "isRecurring", "reviewed",
-    "nettoAmount", "vatAmount", "bruttoAmount",
+    "nettoAmount", "vatAmount", "bruttoAmount", "note",
   ];
 
   for (const f of scalarFields) {

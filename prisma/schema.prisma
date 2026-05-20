@@ -121,6 +121,12 @@ model Document {
   gf2ApprovedAt DateTime?
   gf2ApprovedBy String?
 
+  // Free-text note the managing directors add when reviewing ("opisują").
+  note String? @db.Text
+
+  // Public, no-login share link token. Null = not shared.
+  shareToken String? @unique
+
   tags        DocumentTag[]
   auditLogs   AuditLog[]
 

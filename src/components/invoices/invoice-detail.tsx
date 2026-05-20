@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, ScanText, Save, History, Sparkles } from "lucide-react";
+import { ArrowLeft, FileText, ScanText, Save, History, Sparkles, Link2, Copy, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, TagChip } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
       currency: doc.currency,
       documentType: doc.documentType,
       isRecurring: doc.isRecurring,
+      note: doc.note ?? null,
       tags: tagInput.split(",").map((t) => t.trim()).filter(Boolean),
       reviewed: markReviewed,
     };
@@ -59,6 +60,35 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
     });
     if (res.ok) setDoc(await res.json());
     setSaving(false);
+  }
+
+  const [shareUrl, setShareUrl] = useState<string | null>(
+    doc.shareToken ? `${origin()}/share/${doc.shareToken}` : null,
+  );
+  const [copied, setCopied] = useState(false);
+
+  async function createShare() {
+    const res = await fetch(`/api/invoices/${doc.id}/share`, { method: "POST" });
+    if (res.ok) {
+      const { token } = await res.json();
+      setDoc((d: Detail) => ({ ...d, shareToken: token }));
+      setShareUrl(`${origin()}/share/${token}`);
+    }
+  }
+
+  async function revokeShare() {
+    const res = await fetch(`/api/invoices/${doc.id}/share`, { method: "DELETE" });
+    if (res.ok) {
+      setDoc((d: Detail) => ({ ...d, shareToken: null }));
+      setShareUrl(null);
+    }
+  }
+
+  function copyLink() {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   const confidencePct = doc.confidence != null ? Math.round(doc.confidence * 100) : null;
@@ -197,7 +227,17 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
               ))}
             </div>
 
-            <div className="mt-1 flex gap-2">
+            <Field label="Notiz / Beschreibung (intern)">
+              <textarea
+                value={doc.note ?? ""}
+                onChange={(e) => set("note", e.target.value)}
+                rows={3}
+                placeholder="Anmerkung der Geschäftsführung zur Rechnung…"
+                className="w-full rounded-md border border-hairline bg-surface-card p-3 text-[14px] text-ink placeholder:text-ash focus:border-accent-blue focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+              />
+            </Field>
+
+            <div className="mt-1 flex flex-wrap gap-2">
               <Button onClick={() => save(false)} disabled={saving} variant="secondary">
                 <Save className="size-4" /> Speichern
               </Button>
@@ -208,6 +248,40 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Public share link */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="size-4 text-mute" /> Öffentlicher Link
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-[13px] text-mute">
+            Erzeugt einen Link ohne Login zur Rechnungsprüfung durch andere Mitarbeiter. Sichtbar
+            sind nur PDF, Lieferantendaten und Beträge — keine Notizen oder Freigaben.
+          </p>
+          {shareUrl ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Input readOnly value={shareUrl} className="max-w-md font-mono text-[13px]" />
+              <Button variant="secondary" size="sm" onClick={copyLink}>
+                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                {copied ? "Kopiert" : "Kopieren"}
+              </Button>
+              <a href={shareUrl} target="_blank" rel="noreferrer">
+                <Button variant="tertiary" size="sm">Öffnen</Button>
+              </a>
+              <Button variant="tertiary" size="sm" onClick={revokeShare}>
+                <X className="size-4" /> Widerrufen
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={createShare} variant="secondary">
+              <Link2 className="size-4" /> Öffentlichen Link erstellen
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Audit log */}
       <Card>
@@ -242,4 +316,8 @@ function numOrNull(v: unknown): number | null {
   if (v === "" || v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function origin(): string {
+  return typeof window !== "undefined" ? window.location.origin : "";
 }

@@ -1,4 +1,4 @@
-import { mkdir, rename, stat } from "node:fs/promises";
+import { mkdir, copyFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "./db";
 import { fileChecksum } from "./checksum";
@@ -105,9 +105,10 @@ async function moveToStorage(sourcePath: string, checksum: string): Promise<stri
   await mkdir(STORAGE_DIR, { recursive: true });
   const dest = path.join(STORAGE_DIR, `${checksum}.pdf`);
   try {
-    await rename(sourcePath, dest);
+    // Copy (not move) so the rclone-synced inbox mirror stays intact and the
+    // same file is not re-downloaded on the next sync cycle.
+    await copyFile(sourcePath, dest);
   } catch {
-    // Cross-device or already-moved: tolerate and keep the source path.
     return sourcePath;
   }
   return dest;

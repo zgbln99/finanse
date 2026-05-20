@@ -10,3 +10,5 @@ npm-debug.log*
 next-env.d.ts
 /data
 .DS_Store
+# Real rclone credentials must never be committed
+rclone/rclone.conf

@@ -12,16 +12,16 @@ function toNum(d: unknown): number {
 
 export type DashboardStats = Awaited<ReturnType<typeof getDashboardStats>>;
 
-export async function getDashboardStats() {
+export async function getDashboardStats(year: number = new Date().getFullYear()) {
   const now = new Date();
-  const year = now.getFullYear();
   const startOfYear = new Date(year, 0, 1);
-  const startOfMonth = new Date(year, now.getMonth(), 1);
-  const startOfLastMonth = new Date(year, now.getMonth() - 1, 1);
-  const startOfThisMonth = startOfMonth;
+  const endOfYear = new Date(year + 1, 0, 1);
 
   const docs = await prisma.document.findMany({
-    where: { status: { in: [...COUNTED_STATUSES] }, invoiceDate: { not: null } },
+    where: {
+      status: { in: [...COUNTED_STATUSES] },
+      invoiceDate: { gte: startOfYear, lt: endOfYear },
+    },
     select: {
       bruttoAmount: true,
       nettoAmount: true,
@@ -45,11 +45,19 @@ export async function getDashboardStats() {
     tags: d.tags.map((t) => t.tag),
   }));
 
-  const totalYear = sum(rows.filter((r) => r.date >= startOfYear));
-  const totalThisMonth = sum(rows.filter((r) => r.date >= startOfThisMonth));
-  const totalLastMonth = sum(
-    rows.filter((r) => r.date >= startOfLastMonth && r.date < startOfThisMonth),
-  );
+  // Reference month: current month for the live year, otherwise the latest
+  // month that actually has invoices in the selected (archive) year.
+  const isCurrentYear = year === now.getFullYear();
+  const monthsWithData = rows.map((r) => r.date.getMonth());
+  const refMonth = isCurrentYear
+    ? now.getMonth()
+    : monthsWithData.length
+      ? Math.max(...monthsWithData)
+      : 11;
+
+  const totalYear = sum(rows);
+  const totalThisMonth = sum(rows.filter((r) => r.date.getMonth() === refMonth));
+  const totalLastMonth = sum(rows.filter((r) => r.date.getMonth() === refMonth - 1));
   const momChange =
     totalLastMonth > 0 ? ((totalThisMonth - totalLastMonth) / totalLastMonth) * 100 : null;
 
@@ -68,9 +76,9 @@ export async function getDashboardStats() {
   }
   const byTag = [...tagMap.values()].sort((a, b) => b.total - a.total);
 
-  // Per Kalenderwoche (current year).
+  // Per Kalenderwoche (selected year).
   const kwMap = new Map<number, number>();
-  for (const r of rows.filter((x) => x.date >= startOfYear)) {
+  for (const r of rows) {
     const kw = isoWeek(r.date);
     kwMap.set(kw, (kwMap.get(kw) ?? 0) + r.brutto);
   }
@@ -78,14 +86,13 @@ export async function getDashboardStats() {
     .map(([kw, total]) => ({ kw: `KW ${kw}`, total: round(total) }))
     .sort((a, b) => Number(a.kw.slice(3)) - Number(b.kw.slice(3)));
 
-  // Monthly trend (last 14 months).
+  // Monthly trend (12 months of the selected year, Jan–Dec).
   const trend: { month: string; total: number; netto: number }[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(year, now.getMonth() - i, 1);
-    const next = new Date(year, now.getMonth() - i + 1, 1);
-    const monthRows = rows.filter((r) => r.date >= d && r.date < next);
+  for (let m = 0; m < 12; m++) {
+    const d = new Date(year, m, 1);
+    const monthRows = rows.filter((r) => r.date.getMonth() === m);
     trend.push({
-      month: d.toLocaleDateString("de-DE", { month: "short", year: "2-digit" }),
+      month: d.toLocaleDateString("de-DE", { month: "short" }),
       total: round(sum(monthRows)),
       netto: round(sum(monthRows)),
     });
@@ -100,28 +107,24 @@ export async function getDashboardStats() {
   // Recurring.
   const recurringVendors = byVendorRecurring(rows);
 
-  // Heatmap: tag (rows) x month (cols), last 6 months.
+  // Heatmap: tag (rows) x month (cols), 12 months of the selected year.
   const heatmapMonths: string[] = [];
-  for (let i = 5; i >= 0; i--) {
-    heatmapMonths.push(
-      new Date(year, now.getMonth() - i, 1).toLocaleDateString("de-DE", { month: "short" }),
-    );
+  for (let m = 0; m < 12; m++) {
+    heatmapMonths.push(new Date(year, m, 1).toLocaleDateString("de-DE", { month: "narrow" }));
   }
   const topTagNames = byTag.slice(0, 6).map((t) => t.name);
   const heatmap = topTagNames.map((name) => {
-    const cells = heatmapMonths.map((_, idx) => {
-      const monthIndex = now.getMonth() - 5 + idx;
-      const start = new Date(year, monthIndex, 1);
-      const end = new Date(year, monthIndex + 1, 1);
+    const cells = heatmapMonths.map((_, m) => {
       const total = rows
-        .filter((r) => r.date >= start && r.date < end && r.tags.some((t) => t.name === name))
+        .filter((r) => r.date.getMonth() === m && r.tags.some((t) => t.name === name))
         .reduce((s, r) => s + r.brutto, 0);
       return round(total);
     });
     return { tag: name, cells };
   });
 
-  const documentCount = await prisma.document.count();
+  // Operational pipeline counts (not year-scoped — about processing health).
+  const documentCount = rows.length;
   const reviewCount = await prisma.document.count({ where: { status: "needs_review" } });
   const failedCount = await prisma.document.count({ where: { status: "failed" } });
   const pendingCount = await prisma.document.count({
@@ -129,6 +132,7 @@ export async function getDashboardStats() {
   });
 
   return {
+    year,
     kpis: {
       totalYear: round(totalYear),
       totalThisMonth: round(totalThisMonth),

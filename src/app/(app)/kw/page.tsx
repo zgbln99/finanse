@@ -1,17 +1,12 @@
 import { getKwOverview } from "@/lib/kw";
-import { isoWeekYear } from "@/lib/utils";
+import { getActiveYear } from "@/lib/year";
 import { KwClient } from "@/components/kw/kw-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function KwPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ year?: string }>;
-}) {
-  const { year } = await searchParams;
-  const selectedYear = year ? Number(year) : isoWeekYear(new Date());
-  const overview = await getKwOverview(selectedYear);
+export default async function KwPage() {
+  const year = await getActiveYear();
+  const overview = await getKwOverview(year);
 
   return (
     <KwClient

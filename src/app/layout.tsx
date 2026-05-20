@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/layout/app-shell";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -25,9 +24,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" className={`${plex.variable} ${plexMono.variable}`}>
-      <body className="min-h-screen font-sans antialiased">
-        <AppShell>{children}</AppShell>
-      </body>
+      <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );
 }

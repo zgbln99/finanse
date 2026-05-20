@@ -1,0 +1,8 @@
+# Skopiuj ten plik do rclone/rclone.conf i wklej swoją prawdziwą konfigurację.
+# Token wygenerujesz na komputerze z przeglądarką:  rclone config   (typ: drive)
+# a następnie skopiuj sekcję [gdrive] tutaj.
+[gdrive]
+type = drive
+scope = drive.readonly
+token = {"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}
+team_drive =

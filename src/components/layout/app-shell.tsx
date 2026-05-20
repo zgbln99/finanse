@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { YearSwitcher } from "./year-switcher";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -21,7 +22,15 @@ const NAV = [
   { href: "/chat", label: "AI-Analyse", icon: MessageSquare },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  year,
+  years,
+}: {
+  children: React.ReactNode;
+  year: number;
+  years: number[];
+}) {
   const pathname = usePathname();
 
   return (
@@ -74,6 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-hairline bg-canvas/90 px-6 backdrop-blur">
           <MobileTitle pathname={pathname} />
           <div className="flex items-center gap-3 text-[13px] text-mute">
+            <YearSwitcher year={year} years={years} />
             <span className="hidden sm:inline">gpt-4.1-mini</span>
             <span className="size-2 rounded-full bg-accent-green" title="Worker aktiv" />
           </div>
