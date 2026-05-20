@@ -20,11 +20,8 @@ export type KwInvoice = {
   documentType: string | null;
   status: string;
   tags: { name: string; color: string }[];
-  gf1ApprovedBy: string | null;
-  gf1ApprovedAt: string | null;
-  gf2ApprovedBy: string | null;
-  gf2ApprovedAt: string | null;
-  fullyApproved: boolean;
+  reviewStatus: string | null; // "ok" | "nok" | null
+  note: string | null;
 };
 
 export type KwGroup = {
@@ -34,9 +31,9 @@ export type KwGroup = {
   netto: number;
   brutto: number;
   count: number;
-  approvedCount: number; // both GF signed off
-  gf1Count: number;
-  gf2Count: number;
+  okCount: number;
+  nokCount: number;
+  openCount: number;
   invoices: KwInvoice[];
 };
 
@@ -45,6 +42,8 @@ export type KwOverview = {
   years: number[];
   totalBrutto: number;
   totalCount: number;
+  okCount: number;
+  nokCount: number;
   openCount: number;
   groups: KwGroup[];
 };
@@ -70,6 +69,8 @@ export async function getKwOverview(year: number): Promise<KwOverview> {
   const groups = new Map<number, KwGroup>();
   let totalBrutto = 0;
   let totalCount = 0;
+  let okCount = 0;
+  let nokCount = 0;
   let openCount = 0;
 
   for (const d of docs) {
@@ -86,23 +87,28 @@ export async function getKwOverview(year: number): Promise<KwOverview> {
         netto: 0,
         brutto: 0,
         count: 0,
-        approvedCount: 0,
-        gf1Count: 0,
-        gf2Count: 0,
+        okCount: 0,
+        nokCount: 0,
+        openCount: 0,
         invoices: [],
       });
     }
     const g = groups.get(week)!;
     const brutto = toNum(d.bruttoAmount);
-    const fullyApproved = Boolean(d.gf1ApprovedAt && d.gf2ApprovedAt);
 
     g.netto += toNum(d.nettoAmount);
     g.brutto += brutto;
     g.count += 1;
-    if (d.gf1ApprovedAt) g.gf1Count += 1;
-    if (d.gf2ApprovedAt) g.gf2Count += 1;
-    if (fullyApproved) g.approvedCount += 1;
-    else openCount += 1;
+    if (d.reviewStatus === "ok") {
+      g.okCount += 1;
+      okCount += 1;
+    } else if (d.reviewStatus === "nok") {
+      g.nokCount += 1;
+      nokCount += 1;
+    } else {
+      g.openCount += 1;
+      openCount += 1;
+    }
 
     totalBrutto += brutto;
     totalCount += 1;
@@ -119,11 +125,8 @@ export async function getKwOverview(year: number): Promise<KwOverview> {
       documentType: d.documentType,
       status: d.status,
       tags: d.tags.map((t) => ({ name: t.tag.name, color: t.tag.color })),
-      gf1ApprovedBy: d.gf1ApprovedBy,
-      gf1ApprovedAt: d.gf1ApprovedAt ? d.gf1ApprovedAt.toISOString() : null,
-      gf2ApprovedBy: d.gf2ApprovedBy,
-      gf2ApprovedAt: d.gf2ApprovedAt ? d.gf2ApprovedAt.toISOString() : null,
-      fullyApproved,
+      reviewStatus: d.reviewStatus,
+      note: d.note,
     });
   }
 
@@ -138,6 +141,8 @@ export async function getKwOverview(year: number): Promise<KwOverview> {
     years,
     totalBrutto: Math.round(totalBrutto * 100) / 100,
     totalCount,
+    okCount,
+    nokCount,
     openCount,
     groups: sortedGroups,
   };

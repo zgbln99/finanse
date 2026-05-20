@@ -124,6 +124,9 @@ model Document {
   // Free-text note the managing directors add when reviewing ("opisują").
   note String? @db.Text
 
+  // KW review verdict set in the slideshow control: "ok" | "nok" (null = open).
+  reviewStatus String?
+
   // Public, no-login share link token. Null = not shared.
   shareToken String? @unique
 
