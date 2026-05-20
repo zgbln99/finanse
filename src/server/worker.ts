@@ -12,13 +12,16 @@ const worker = new Worker<IngestJobData>(
     console.log(`[worker] job ${job.id}: ${originalName}`);
 
     const { document, duplicate } = await registerDocument({ filePath, originalName, source });
-    if (duplicate) {
+    // Skip only documents that are already finished. Re-run ones that never
+    // completed (failed / stuck) so a code fix retries them on the next sync.
+    const finished = document.status === "completed" || document.status === "needs_review";
+    if (duplicate && finished) {
       console.log(`[worker] duplicate skipped: ${originalName} -> ${document.id}`);
       return { documentId: document.id, duplicate: true };
     }
 
     await processDocument(document.id);
-    return { documentId: document.id, duplicate: false };
+    return { documentId: document.id, duplicate: false, reprocessed: duplicate };
   },
   {
     connection: redis,
