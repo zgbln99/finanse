@@ -30,6 +30,29 @@ export function isoWeek(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
+/** ISO week-numbering year (can differ from calendar year at year boundaries). */
+export function isoWeekYear(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  return d.getUTCFullYear();
+}
+
+/** Monday (start) and Sunday (end) dates of a given ISO week. */
+export function isoWeekRange(weekYear: number, week: number): { start: Date; end: Date } {
+  const simple = new Date(Date.UTC(weekYear, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay() || 7;
+  const monday = new Date(simple);
+  monday.setUTCDate(simple.getUTCDate() - dow + 1);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  return { start: monday, end: sunday };
+}
+
+export function formatDayMonth(date: Date): string {
+  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" }).format(date);
+}
+
 export function normalizeVendor(name: string): string {
   return name
     .toLowerCase()

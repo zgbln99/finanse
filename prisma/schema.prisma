@@ -31,6 +31,7 @@ enum AuditAction {
   field_corrected
   status_changed
   reviewed
+  approved
   reprocessed
 }
 
@@ -112,6 +113,13 @@ model Document {
   reviewed      Boolean       @default(false)
   reviewedAt    DateTime?
   aiModel       String?
+
+  // KW-Kontrolle: dual sign-off by the two managing directors (Geschäftsführung).
+  // A document counts as "freigegeben" only when both slots are set.
+  gf1ApprovedAt DateTime?
+  gf1ApprovedBy String?
+  gf2ApprovedAt DateTime?
+  gf2ApprovedBy String?
 
   tags        DocumentTag[]
   auditLogs   AuditLog[]

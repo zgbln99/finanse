@@ -7,6 +7,7 @@ import {
   FileText,
   ShieldCheck,
   MessageSquare,
+  CalendarCheck,
   Boxes,
   Upload,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Rechnungen", icon: FileText },
+  { href: "/kw", label: "KW-Kontrolle", icon: CalendarCheck },
   { href: "/review", label: "Prüfung", icon: ShieldCheck },
   { href: "/chat", label: "AI-Analyse", icon: MessageSquare },
 ];

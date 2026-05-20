@@ -53,6 +53,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.8}
+      OWN_COMPANY_NAME: ${OWN_COMPANY_NAME:-LTS Logistik GmbH}
+      GF1_NAME: ${GF1_NAME:-Geschäftsführung 1}
+      GF2_NAME: ${GF2_NAME:-Geschäftsführung 2}
       INGEST_DIR: /data/inbox
       STORAGE_DIR: /data/storage
     volumes:
@@ -80,6 +83,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.8}
+      OWN_COMPANY_NAME: ${OWN_COMPANY_NAME:-LTS Logistik GmbH}
       OCR_LANG: ${OCR_LANG:-deu+eng}
       STORAGE_DIR: /data/storage
     volumes:
