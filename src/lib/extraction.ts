@@ -66,7 +66,6 @@ const JSON_SCHEMA = {
     tags: { type: "array", items: { type: "string" } },
     isRecurring: { type: "boolean" },
     confidence: { type: "number" },
-    fieldConfidence: { type: "object", additionalProperties: { type: "number" } },
   },
   required: [
     "vendorName",
@@ -84,7 +83,6 @@ const JSON_SCHEMA = {
     "tags",
     "isRecurring",
     "confidence",
-    "fieldConfidence",
   ],
 } as const;
 
