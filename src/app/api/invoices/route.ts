@@ -17,6 +17,13 @@ export async function GET(req: NextRequest) {
   const type = sp.get("type") as DocumentType | null;
   const tag = sp.get("tag");
   const vendor = sp.get("vendor");
+  const city = sp.get("city");
+  const reviewStatus = sp.get("reviewStatus"); // ok | nok | open
+  const dateFrom = sp.get("dateFrom");
+  const dateTo = sp.get("dateTo");
+  const amountMin = sp.get("amountMin");
+  const amountMax = sp.get("amountMax");
+  const format = sp.get("format");
   const page = Math.max(1, Number(sp.get("page") ?? "1"));
   const pageSize = Math.min(100, Number(sp.get("pageSize") ?? "25"));
 
@@ -31,14 +38,44 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status;
   if (type) where.documentType = type;
   if (vendor) where.vendorName = { contains: vendor, mode: "insensitive" };
+  if (city) where.city = { contains: city, mode: "insensitive" };
   if (tag) where.tags = { some: { tag: { name: tag } } };
+  if (reviewStatus === "ok" || reviewStatus === "nok") where.reviewStatus = reviewStatus;
+  if (reviewStatus === "open") where.reviewStatus = null;
+
+  // Date range overrides the year scope when provided.
+  if (dateFrom || dateTo) {
+    where.invoiceDate = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(dateTo) } : {}),
+    };
+  }
+  if (amountMin || amountMax) {
+    where.bruttoAmount = {
+      ...(amountMin ? { gte: Number(amountMin) } : {}),
+      ...(amountMax ? { lte: Number(amountMax) } : {}),
+    };
+  }
   if (q) {
     where.OR = [
       { vendorName: { contains: q, mode: "insensitive" } },
       { invoiceNumber: { contains: q, mode: "insensitive" } },
       { originalName: { contains: q, mode: "insensitive" } },
+      { city: { contains: q, mode: "insensitive" } },
+      { street: { contains: q, mode: "insensitive" } },
+      { note: { contains: q, mode: "insensitive" } },
       { ocrText: { contains: q, mode: "insensitive" } },
     ];
+  }
+
+  // CSV export of the full filtered set (no pagination).
+  if (format === "csv") {
+    const all = await prisma.document.findMany({
+      where,
+      orderBy: [{ invoiceDate: { sort: "desc", nulls: "last" } }],
+      include: { tags: { include: { tag: true } } },
+    });
+    return csvResponse(all);
   }
 
   const [items, total] = await Promise.all([
@@ -58,6 +95,37 @@ export async function GET(req: NextRequest) {
     page,
     pageSize,
     pages: Math.ceil(total / pageSize),
+  });
+}
+
+function csvResponse(docs: any[]): NextResponse {
+  const header = [
+    "Lieferant", "Stadt", "Rechnungsnummer", "Rechnungsdatum",
+    "Netto", "MwSt", "Brutto", "Waehrung", "Typ", "Tags", "Pruefung", "Status",
+  ];
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = docs.map((d) =>
+    [
+      d.vendorName, d.city, d.invoiceNumber,
+      d.invoiceDate ? new Date(d.invoiceDate).toISOString().slice(0, 10) : "",
+      d.nettoAmount ? Number(d.nettoAmount) : "",
+      d.vatAmount ? Number(d.vatAmount) : "",
+      d.bruttoAmount ? Number(d.bruttoAmount) : "",
+      d.currency, d.documentType,
+      d.tags.map((t: any) => t.tag.name).join("|"),
+      d.reviewStatus ?? "offen", d.status,
+    ].map(esc).join(";"),
+  );
+  // BOM so Excel opens UTF-8 (Umlaute) correctly; semicolons for DE locale.
+  const csv = "﻿" + [header.join(";"), ...lines].join("\r\n");
+  return new NextResponse(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="rechnungen-${Date.now()}.csv"`,
+    },
   });
 }
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Filter } from "lucide-react";
+import { Search, Download, X, Check, CircleDot } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge, TagChip } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,40 +16,79 @@ import { DOC_TYPES, DOC_TYPE_LABEL, STATUS_LABEL, STATUS_VARIANT, STATUSES } fro
 type Invoice = {
   id: string;
   vendorName: string | null;
+  city: string | null;
   invoiceNumber: string | null;
   invoiceDate: string | null;
   bruttoAmount: number | null;
   currency: string;
   documentType: string | null;
   status: string;
-  confidence: number | null;
+  reviewStatus: string | null;
   tags: { name: string; color: string }[];
 };
 
+type Filters = {
+  q: string;
+  status: string;
+  type: string;
+  tag: string;
+  city: string;
+  reviewStatus: string;
+  dateFrom: string;
+  dateTo: string;
+  amountMin: string;
+  amountMax: string;
+};
+
+const EMPTY: Filters = {
+  q: "", status: "", type: "", tag: "", city: "", reviewStatus: "",
+  dateFrom: "", dateTo: "", amountMin: "", amountMax: "",
+};
+
+const selectCls = "h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink";
+
 export function InvoicesClient() {
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [type, setType] = useState("");
+  const [f, setF] = useState<Filters>(EMPTY);
   const [items, setItems] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [opts, setOpts] = useState<{ tags: { name: string; color: string }[]; cities: string[] }>({
+    tags: [],
+    cities: [],
+  });
+
+  function set<K extends keyof Filters>(key: K, value: string) {
+    setF((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const query = useMemo(() => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(f)) if (v) sp.set(k, v);
+    return sp.toString();
+  }, [f]);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const sp = new URLSearchParams();
-    if (q) sp.set("q", q);
-    if (status) sp.set("status", status);
-    if (type) sp.set("type", type);
-    const res = await fetch(`/api/invoices?${sp.toString()}`);
+    const res = await fetch(`/api/invoices?${query}`);
     const data = await res.json();
     setItems(data.items ?? []);
     setTotal(data.total ?? 0);
     setLoading(false);
-  }, [q, status, type]);
+  }, [query]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/meta/filters")
+      .then((r) => r.json())
+      .then((d) => setOpts({ tags: d.tags ?? [], cities: d.cities ?? [] }))
+      .catch(() => {});
+  }, []);
+
+  const hasFilters = Object.values(f).some(Boolean);
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,44 +97,71 @@ export function InvoicesClient() {
           <div className="eyebrow">Belege</div>
           <h1 className="mt-1 text-[24px] font-bold tracking-tight text-ink">Rechnungen</h1>
         </div>
-        <span className="text-[13px] text-mute">{total} Dokumente</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[13px] text-mute">{total} Dokumente</span>
+          <a href={`/api/invoices?${query}&format=csv`}>
+            <Button variant="secondary" size="sm">
+              <Download className="size-4" /> CSV
+            </Button>
+          </a>
+        </div>
       </header>
 
       <ImportPanel onDone={load} />
 
-      {/* Filters */}
-      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      {/* Filter bar */}
+      <Card className="flex flex-col gap-3 p-4">
+        <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-mute" />
           <Input
-            placeholder="Suche nach Lieferant, Rechnungsnr., Text…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            placeholder="Volltextsuche: Inhalt (OCR), Lieferant, Stadt, Straße, Rechnungsnr., Notiz…"
+            value={f.q}
+            onChange={(e) => set("q", e.target.value)}
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="size-4 text-mute" />
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink"
-          >
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={f.status} onChange={(e) => set("status", e.target.value)} className={selectCls}>
             <option value="">Alle Status</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-            ))}
+            {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
           </select>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink"
-          >
+          <select value={f.type} onChange={(e) => set("type", e.target.value)} className={selectCls}>
             <option value="">Alle Typen</option>
-            {DOC_TYPES.map((t) => (
-              <option key={t} value={t}>{DOC_TYPE_LABEL[t]}</option>
-            ))}
+            {DOC_TYPES.map((t) => <option key={t} value={t}>{DOC_TYPE_LABEL[t]}</option>)}
           </select>
+          <select value={f.reviewStatus} onChange={(e) => set("reviewStatus", e.target.value)} className={selectCls}>
+            <option value="">Prüfung: alle</option>
+            <option value="ok">OK</option>
+            <option value="nok">Nicht OK</option>
+            <option value="open">offen</option>
+          </select>
+          <select value={f.tag} onChange={(e) => set("tag", e.target.value)} className={selectCls}>
+            <option value="">Alle Tags</option>
+            {opts.tags.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+          </select>
+          <select value={f.city} onChange={(e) => set("city", e.target.value)} className={selectCls}>
+            <option value="">Alle Städte</option>
+            {opts.cities.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <div className="flex items-center gap-1 text-[13px] text-mute">
+            <span>Datum</span>
+            <input type="date" value={f.dateFrom} onChange={(e) => set("dateFrom", e.target.value)} className={selectCls} />
+            <span>–</span>
+            <input type="date" value={f.dateTo} onChange={(e) => set("dateTo", e.target.value)} className={selectCls} />
+          </div>
+          <div className="flex items-center gap-1 text-[13px] text-mute">
+            <span>Brutto €</span>
+            <Input type="number" placeholder="min" value={f.amountMin} onChange={(e) => set("amountMin", e.target.value)} className="h-9 w-20" />
+            <Input type="number" placeholder="max" value={f.amountMax} onChange={(e) => set("amountMax", e.target.value)} className="h-9 w-20" />
+          </div>
+
+          {hasFilters && (
+            <Button variant="tertiary" size="sm" onClick={() => setF(EMPTY)}>
+              <X className="size-4" /> Zurücksetzen
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -103,11 +170,12 @@ export function InvoicesClient() {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Lieferant</TableHead>
+              <TableHead>Stadt</TableHead>
               <TableHead>Rechnungsnr.</TableHead>
               <TableHead>Datum</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead className="text-right">Brutto</TableHead>
-              <TableHead>Typ</TableHead>
+              <TableHead>Prüfung</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -115,7 +183,7 @@ export function InvoicesClient() {
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={7}><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell colSpan={8}><Skeleton className="h-5 w-full" /></TableCell>
                   </TableRow>
                 ))
               : items.map((inv) => (
@@ -125,6 +193,7 @@ export function InvoicesClient() {
                         {inv.vendorName ?? "—"}
                       </Link>
                     </TableCell>
+                    <TableCell>{inv.city ?? "—"}</TableCell>
                     <TableCell className="font-mono text-[13px]">{inv.invoiceNumber ?? "—"}</TableCell>
                     <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
                     <TableCell>
@@ -137,7 +206,7 @@ export function InvoicesClient() {
                     <TableCell className="text-right font-semibold text-ink">
                       {formatCurrency(inv.bruttoAmount, inv.currency)}
                     </TableCell>
-                    <TableCell>{inv.documentType ? DOC_TYPE_LABEL[inv.documentType] : "—"}</TableCell>
+                    <TableCell><ReviewBadge status={inv.reviewStatus} /></TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[inv.status]}>{STATUS_LABEL[inv.status]}</Badge>
                     </TableCell>
@@ -145,7 +214,7 @@ export function InvoicesClient() {
                 ))}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-mute">
+                <TableCell colSpan={8} className="py-10 text-center text-mute">
                   Keine Rechnungen gefunden.
                 </TableCell>
               </TableRow>
@@ -155,4 +224,10 @@ export function InvoicesClient() {
       </Card>
     </div>
   );
+}
+
+function ReviewBadge({ status }: { status: string | null }) {
+  if (status === "ok") return <Badge variant="green"><Check className="size-3" /> OK</Badge>;
+  if (status === "nok") return <Badge variant="red"><X className="size-3" /> Nicht OK</Badge>;
+  return <Badge variant="neutral"><CircleDot className="size-3" /> offen</Badge>;
 }
