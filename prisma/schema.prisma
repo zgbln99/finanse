@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentStatus {
+  pending
+  processing
+  completed
+  failed
+  needs_review
+}
+
+enum DocumentType {
+  rechnung // invoice
+  gutschrift // credit note
+  mahnung // dunning
+  angebot // quote
+  lieferschein // delivery note
+  sonstiges // other
+}
+
+enum AuditAction {
+  created
+  ocr_completed
+  ai_extracted
+  field_corrected
+  status_changed
+  reviewed
+  reprocessed
+}
+
+/// A vendor / Lieferant. LTS Logistik GmbH is never stored as a vendor.
+model Vendor {
+  id           String    @id @default(cuid())
+  name         String    @unique
+  normalized   String    @unique // lowercased, trimmed key used for matching
+  city         String?
+  street       String?
+  postalCode   String?
+  country       String?
+  vatId        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  documents    Document[]
+
+  @@index([normalized])
+}
+
+/// Semantic German business tag (e.g. mobilfunk, fracht, maut).
+model Tag {
+  id        String        @id @default(cuid())
+  name      String        @unique // short, lowercase, German
+  color     String        @default("#2c84e0")
+  createdAt DateTime      @default(now())
+  documents DocumentTag[]
+}
+
+model DocumentTag {
+  documentId String
+  tagId      String
+  source     String   @default("ai") // "ai" | "manual"
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@index([tagId])
+}
+
+/// Imported PDF document and its full extraction lifecycle.
+model Document {
+  id        String         @id @default(cuid())
+  // Import
+  sourcePath   String
+  storedPath   String? // path inside STORAGE_DIR after dedup move
+  originalName String
+  checksum     String         @unique // sha256 of file bytes -> dedup
+  fileSize     Int
+  source       String         @default("folder") // folder | drive | upload
+  status       DocumentStatus @default(pending)
+  errorMessage String?
+
+  // OCR
+  ocrText     String? @db.Text
+  ocrEngine   String?
+  pageCount   Int?
+
+  // AI extracted fields (German accounting terminology)
+  vendorId      String?
+  vendor        Vendor?       @relation(fields: [vendorId], references: [id])
+  vendorName    String? // raw extracted vendor name
+  city          String?
+  street        String?
+  postalCode    String?
+  country       String?
+  invoiceNumber String? // Rechnungsnummer
+  invoiceDate   DateTime? // Rechnungsdatum
+  nettoAmount   Decimal?      @db.Decimal(14, 2)
+  vatAmount     Decimal?      @db.Decimal(14, 2)
+  bruttoAmount  Decimal?      @db.Decimal(14, 2)
+  currency      String        @default("EUR")
+  documentType  DocumentType?
+
+  // AI meta
+  confidence    Float? // 0..1 overall confidence
+  fieldConfidence Json? // per-field confidence map
+  isRecurring   Boolean       @default(false)
+  reviewed      Boolean       @default(false)
+  reviewedAt    DateTime?
+  aiModel       String?
+
+  tags        DocumentTag[]
+  auditLogs   AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([vendorId])
+  @@index([invoiceDate])
+  @@index([documentType])
+}
+
+/// Immutable audit trail of every change to a document.
+model AuditLog {
+  id         String      @id @default(cuid())
+  documentId String
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  action     AuditAction
+  field      String?
+  oldValue   String?
+  newValue   String?
+  actor      String      @default("system") // "system" | "ai" | user email
+  meta       Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([documentId])
+}
+
+/// AI correction memory: when a user corrects a field for a vendor, we remember
+/// it so future extractions for the same vendor can be auto-corrected.
+model CorrectionMemory {
+  id            String   @id @default(cuid())
+  vendorKey     String // normalized vendor name
+  field         String // e.g. "documentType", "currency", "city"
+  fromValue     String? // value the AI tends to produce
+  toValue       String // value the user prefers
+  hitCount      Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([vendorKey, field, fromValue])
+  @@index([vendorKey])
+}

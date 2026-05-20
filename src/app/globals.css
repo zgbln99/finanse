@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    /* Warm cream canvas runs edge-to-edge — never pure white (DESIGN.md). */
+    background-color: theme("colors.canvas");
+    color: theme("colors.body");
+    font-feature-settings: "cv05", "cv08";
+  }
+
+  ::selection {
+    background: theme("colors.primary.DEFAULT");
+    color: theme("colors.primary.fg");
+  }
+
+  /* Olive headlines, near-black on cream. */
+  h1, h2, h3, h4 {
+    color: theme("colors.ink");
+  }
+}
+
+@layer components {
+  /* Eyebrow label — uppercase utility (DESIGN.md typography.utility-xs). */
+  .eyebrow {
+    @apply text-[12px] font-bold uppercase tracking-wide text-mute;
+  }
+
+  /* Flat card on cream with hairline border — no drop shadows. */
+  .card-flat {
+    @apply rounded-md border border-hairline bg-surface-card;
+  }
+
+  .hairline-divider {
+    @apply border-t border-hairline-soft;
+  }
+}
+
+/* Recharts: tune default text + grid colors to the olive palette. */
+.recharts-cartesian-axis-tick-value {
+  fill: theme("colors.mute");
+  font-size: 12px;
+}
+.recharts-cartesian-grid line {
+  stroke: theme("colors.hairline.soft");
+}
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+/* Thin scrollbars to keep the cockpit feeling fast and minimal. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme("colors.stone") transparent;
+}

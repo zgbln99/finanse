@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cockpit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cockpit}
+      POSTGRES_DB: ${POSTGRES_DB:-cockpit}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cockpit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "6379:6379"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    command: ["sh", "-c", "npx prisma migrate deploy && npx tsx prisma/seed.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cockpit:cockpit@postgres:5432/cockpit?schema=public}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cockpit:cockpit@postgres:5432/cockpit?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.8}
+      INGEST_DIR: /data/inbox
+      STORAGE_DIR: /data/storage
+    volumes:
+      - ingest:/data/inbox
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    command: ["npx", "tsx", "src/server/worker.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cockpit:cockpit@postgres:5432/cockpit?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.8}
+      OCR_LANG: ${OCR_LANG:-deu+eng}
+      STORAGE_DIR: /data/storage
+    volumes:
+      - ingest:/data/inbox
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    command: ["npx", "tsx", "src/server/watcher.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cockpit:cockpit@postgres:5432/cockpit?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      INGEST_DIR: /data/inbox
+      STORAGE_DIR: /data/storage
+    volumes:
+      # Mount a local folder or an rclone-mounted Google Drive at ./data/inbox
+      - ingest:/data/inbox
+      - storage:/data/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  redisdata:
+  ingest:
+  storage:
