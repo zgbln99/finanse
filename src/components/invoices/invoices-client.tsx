@@ -47,7 +47,7 @@ const EMPTY: Filters = {
 
 const selectCls = "h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink";
 
-export function InvoicesClient() {
+export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
   const [f, setF] = useState<Filters>(EMPTY);
   const [items, setItems] = useState<Invoice[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,7 +107,7 @@ export function InvoicesClient() {
         </div>
       </header>
 
-      <ImportPanel onDone={load} />
+      {canWrite && <ImportPanel onDone={load} />}
 
       {/* Filter bar */}
       <Card className="flex flex-col gap-3 p-4">

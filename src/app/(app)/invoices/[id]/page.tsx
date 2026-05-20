@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { InvoiceDetail } from "@/components/invoices/invoice-detail";
+import { getCurrentUser } from "@/lib/auth-server";
+import { canWrite } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,5 +31,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     auditLogs: doc.auditLogs.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() })),
   };
 
-  return <InvoiceDetail initial={serialized} />;
+  const user = await getCurrentUser();
+  return <InvoiceDetail initial={serialized} canWrite={canWrite(user?.role)} />;
 }

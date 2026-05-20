@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Prisma, DocumentStatus, DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueueIngest } from "@/lib/queue";
+import { requireWriter } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,8 @@ function csvResponse(docs: any[]): NextResponse {
 
 /** POST /api/invoices — multipart upload of one or more PDFs into the inbox. */
 export async function POST(req: NextRequest) {
+  const auth = await requireWriter(req);
+  if ("response" in auth) return auth.response;
   const form = await req.formData();
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   if (files.length === 0) {

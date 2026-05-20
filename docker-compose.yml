@@ -37,6 +37,8 @@ services:
     command: ["sh", "-c", "npx prisma migrate deploy && npx tsx prisma/seed.ts"]
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://cockpit:cockpit@postgres:5432/cockpit?schema=public}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
       OWN_COMPANY_NAME: ${OWN_COMPANY_NAME:-LTS Logistik GmbH}
       GF1_NAME: ${GF1_NAME:-Geschäftsführung 1}
       GF2_NAME: ${GF2_NAME:-Geschäftsführung 2}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
       INGEST_DIR: /data/inbox
       STORAGE_DIR: /data/storage
     volumes:

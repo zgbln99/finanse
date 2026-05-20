@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requireWriter } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,10 @@ const BodySchema = z.object({
 
 /** POST — set the KW review verdict (ok / nok / null) and optional uwagi. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireWriter(req);
+  if ("response" in auth) return auth.response;
   const { id } = await params;
-  const actor = req.headers.get("x-user-email") ?? "fuhrparkmanagement@ltslogistik.de";
+  const actor = auth.user.email;
   const { status, note } = BodySchema.parse(await req.json());
 
   const doc = await prisma.document.findUnique({ where: { id } });

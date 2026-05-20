@@ -17,7 +17,7 @@ import type { KwInvoice, KwOverview } from "@/lib/kw";
 
 type Edit = { reviewStatus: string | null; note: string };
 
-export function KwClient({ overview }: { overview: KwOverview; gf1Name?: string; gf2Name?: string }) {
+export function KwClient({ overview, canWrite = false }: { overview: KwOverview; canWrite?: boolean }) {
   // Local verdict/note overrides so the UI updates instantly.
   const [edits, setEdits] = useState<Record<string, Edit>>(() => {
     const m: Record<string, Edit> = {};
@@ -88,6 +88,7 @@ export function KwClient({ overview }: { overview: KwOverview; gf1Name?: string;
               edit={edits[selected.id]}
               index={selectedIdx}
               total={flat.length}
+              canWrite={canWrite}
               onVerdict={(s) => setVerdict(selected.id, s)}
               onNote={(note) => persist(selected.id, { ...(edits[selected.id] ?? { reviewStatus: null, note: "" }), note })}
               onPrev={() => go(-1)}
@@ -191,6 +192,7 @@ function PreviewPane({
   edit,
   index,
   total,
+  canWrite,
   onVerdict,
   onNote,
   onPrev,
@@ -200,6 +202,7 @@ function PreviewPane({
   edit?: Edit;
   index: number;
   total: number;
+  canWrite: boolean;
   onVerdict: (s: "ok" | "nok") => void;
   onNote: (note: string) => void;
   onPrev: () => void;
@@ -244,8 +247,9 @@ function PreviewPane({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => onVerdict("ok")}
+            disabled={!canWrite}
             className={cn(
-              "inline-flex h-10 items-center gap-2 rounded-md px-5 text-[14px] font-bold transition-colors",
+              "inline-flex h-10 items-center gap-2 rounded-md px-5 text-[14px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               status === "ok"
                 ? "bg-accent-green text-white"
                 : "border border-hairline bg-surface-card text-ink hover:border-accent-green",
@@ -255,8 +259,9 @@ function PreviewPane({
           </button>
           <button
             onClick={() => onVerdict("nok")}
+            disabled={!canWrite}
             className={cn(
-              "inline-flex h-10 items-center gap-2 rounded-md px-5 text-[14px] font-bold transition-colors",
+              "inline-flex h-10 items-center gap-2 rounded-md px-5 text-[14px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               status === "nok"
                 ? "bg-accent-red text-white"
                 : "border border-hairline bg-surface-card text-ink hover:border-accent-red",
@@ -298,8 +303,9 @@ function PreviewPane({
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => onNote(note)}
           rows={2}
-          placeholder="Uwagi / Anmerkung zur Rechnung… (wird beim Verlassen des Feldes gespeichert)"
-          className="w-full rounded-md border border-hairline bg-surface-card p-2.5 text-[14px] text-ink placeholder:text-ash focus:border-accent-blue focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+          readOnly={!canWrite}
+          placeholder={canWrite ? "Uwagi / Anmerkung zur Rechnung… (wird beim Verlassen des Feldes gespeichert)" : "Nur Lesezugriff"}
+          className="w-full rounded-md border border-hairline bg-surface-card p-2.5 text-[14px] text-ink placeholder:text-ash read-only:bg-surface-soft focus:border-accent-blue focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
         />
       </div>
     </div>

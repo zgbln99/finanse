@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
@@ -10,9 +10,18 @@ import {
   CalendarCheck,
   Boxes,
   Upload,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { YearSwitcher } from "./year-switcher";
+
+type ShellUser = { email: string; role: string } | null;
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrator",
+  manager: "Geschäftsführung",
+  employee: "Mitarbeiter",
+};
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -26,12 +35,23 @@ export function AppShell({
   children,
   year,
   years,
+  user,
+  canWrite,
 }: {
   children: React.ReactNode;
   year: number;
   years: number[];
+  user: ShellUser;
+  canWrite: boolean;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -67,14 +87,27 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="mt-auto px-2">
-          <Link
-            href="/invoices?import=1"
-            className="flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-bold text-primary-fg transition-colors hover:bg-primary-pressed"
-          >
-            <Upload className="size-4" />
-            Dokumente importieren
-          </Link>
+        <div className="mt-auto flex flex-col gap-2 px-2">
+          {canWrite && (
+            <Link
+              href="/invoices?import=1"
+              className="flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-bold text-primary-fg transition-colors hover:bg-primary-pressed"
+            >
+              <Upload className="size-4" />
+              Dokumente importieren
+            </Link>
+          )}
+          {user && (
+            <div className="flex items-center justify-between rounded-md border border-hairline-soft px-2 py-1.5">
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[12px] font-medium text-ink">{user.email}</div>
+                <div className="text-[11px] text-mute">{ROLE_LABEL[user.role] ?? user.role}</div>
+              </div>
+              <button onClick={logout} title="Abmelden" className="text-mute hover:text-accent-red">
+                <LogOut className="size-4" />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

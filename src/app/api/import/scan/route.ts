@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { NextRequest } from "next/server";
 import { enqueueIngest } from "@/lib/queue";
+import { requireWriter } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 const INGEST_DIR = process.env.INGEST_DIR ?? "/data/inbox";
 
 /** POST /api/import/scan — manually scan the inbox folder and enqueue PDFs. */
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const auth = await requireWriter(req);
+  if ("response" in auth) return auth.response;
   let entries: string[] = [];
   try {
     entries = await readdir(INGEST_DIR);

@@ -21,7 +21,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function InvoiceDetail({ initial }: { initial: Detail }) {
+export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; canWrite?: boolean }) {
   const [doc, setDoc] = useState<Detail>(initial);
   const [tab, setTab] = useState<"pdf" | "ocr">("pdf");
   const [saving, setSaving] = useState(false);
@@ -149,8 +149,12 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
         <Card>
           <CardHeader>
             <CardTitle>AI-Metadaten · Prüfung & Korrektur</CardTitle>
+            {!canWrite && (
+              <p className="text-[12px] text-mute">Nur Lesezugriff — Bearbeitung der Geschäftsführung vorbehalten.</p>
+            )}
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <fieldset disabled={!canWrite} className="contents">
             <Field label="Lieferant (Kreditor)">
               <Input value={doc.vendorName ?? ""} onChange={(e) => set("vendorName", e.target.value)} />
             </Field>
@@ -245,11 +249,13 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
                 Geprüft & freigeben
               </Button>
             </div>
+            </fieldset>
           </CardContent>
         </Card>
       </div>
 
       {/* Public share link */}
+      {canWrite && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -282,6 +288,7 @@ export function InvoiceDetail({ initial }: { initial: Detail }) {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Audit log */}
       <Card>

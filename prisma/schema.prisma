@@ -24,6 +24,18 @@ enum DocumentType {
   sonstiges // other
 }
 
+/// Cockpit user. Roles: admin (full + user mgmt), manager (full review),
+/// employee (read-only). Public /share links never require a user.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         String   @default("employee")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 enum AuditAction {
   created
   ocr_completed

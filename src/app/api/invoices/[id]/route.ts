@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { requireWriter } from "@/lib/auth-server";
 import { normalizeVendor } from "@/lib/utils";
 import { normalizeTag, tagColorFor } from "@/lib/tags";
 
@@ -47,8 +48,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 /** PATCH — manual field correction; records audit + AI correction memory. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireWriter(req);
+  if ("response" in auth) return auth.response;
   const { id } = await params;
-  const actor = req.headers.get("x-user-email") ?? "fuhrparkmanagement@ltslogistik.de";
+  const actor = auth.user.email;
   const body = PatchSchema.parse(await req.json());
 
   const before = await prisma.document.findUnique({ where: { id } });
