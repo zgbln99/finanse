@@ -12,9 +12,14 @@ import {
   Boxes,
   Upload,
   LogOut,
+  Users,
+  Tags as TagsIcon,
+  Activity,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { YearSwitcher } from "./year-switcher";
+import { CommandPalette } from "./command-palette";
 
 type ShellUser = { email: string; role: string } | null;
 
@@ -33,18 +38,26 @@ const NAV = [
   { href: "/chat", label: "AI-Analyse", icon: MessageSquare },
 ];
 
+const ADMIN_NAV = [
+  { href: "/users", label: "Benutzer", icon: Users },
+  { href: "/tags", label: "Tags & Regeln", icon: TagsIcon },
+  { href: "/system", label: "System", icon: Activity },
+];
+
 export function AppShell({
   children,
   year,
   years,
   user,
   canWrite,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   year: number;
   years: number[];
   user: ShellUser;
   canWrite: boolean;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -87,6 +100,31 @@ export function AppShell({
               </Link>
             );
           })}
+
+          {isAdmin && (
+            <>
+              <div className="mt-4 px-3 text-[11px] font-bold uppercase tracking-wide text-stone">
+                Verwaltung
+              </div>
+              {ADMIN_NAV.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-[14px] font-medium transition-colors",
+                      active ? "bg-surface-card text-ink" : "text-body hover:bg-surface-soft",
+                    )}
+                  >
+                    <Icon className="size-[18px]" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="mt-auto flex flex-col gap-2 px-2">
@@ -118,15 +156,34 @@ export function AppShell({
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-hairline bg-canvas/90 px-6 backdrop-blur">
           <MobileTitle pathname={pathname} />
           <div className="flex items-center gap-3 text-[13px] text-mute">
+            <SearchHint />
             <YearSwitcher year={year} years={years} />
             <span className="hidden sm:inline">gpt-4.1-mini</span>
             <span className="size-2 rounded-full bg-accent-green" title="Worker aktiv" />
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-content flex-1 px-6 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1760px] flex-1 px-6 py-8 xl:px-10">{children}</main>
       </div>
+
+      <CommandPalette />
     </div>
+  );
+}
+
+function SearchHint() {
+  return (
+    <button
+      onClick={() => {
+        const ev = new KeyboardEvent("keydown", { key: "k", metaKey: true });
+        window.dispatchEvent(ev);
+      }}
+      className="hidden items-center gap-1.5 rounded-md border border-hairline bg-surface-card px-2 py-1 text-mute hover:text-ink sm:flex"
+    >
+      <Search className="size-3.5" />
+      Suche
+      <kbd className="rounded bg-surface-soft px-1 text-[11px]">⌘K</kbd>
+    </button>
   );
 }
 

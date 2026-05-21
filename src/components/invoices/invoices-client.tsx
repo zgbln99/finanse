@@ -81,6 +81,17 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
     return () => clearTimeout(t);
   }, [load]);
 
+  // Seed filters from URL (e.g. dashboard drilldown ?dateFrom=&dateTo=).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const seed: Partial<Filters> = {};
+    (Object.keys(EMPTY) as (keyof Filters)[]).forEach((k) => {
+      const v = sp.get(k);
+      if (v) seed[k] = v;
+    });
+    if (Object.keys(seed).length) setF((prev) => ({ ...prev, ...seed }));
+  }, []);
+
   useEffect(() => {
     fetch("/api/meta/filters")
       .then((r) => r.json())
@@ -174,6 +185,7 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="w-12"></TableHead>
               <TableHead>Lieferant</TableHead>
               <TableHead>Stadt</TableHead>
               <TableHead>Rechnungsnr.</TableHead>
@@ -188,11 +200,22 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={8}><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell colSpan={9}><Skeleton className="h-5 w-full" /></TableCell>
                   </TableRow>
                 ))
               : items.map((inv) => (
                   <TableRow key={inv.id} className="cursor-pointer">
+                    <TableCell>
+                      <Link href={`/invoices/${inv.id}`}>
+                        <img
+                          src={`/api/invoices/${inv.id}/thumb`}
+                          alt=""
+                          loading="lazy"
+                          className="h-10 w-8 rounded-sm border border-hairline-soft bg-surface-soft object-cover"
+                          onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+                        />
+                      </Link>
+                    </TableCell>
                     <TableCell className="font-medium text-ink">
                       <Link href={`/invoices/${inv.id}`} className="hover:underline">
                         {inv.vendorName ?? "—"}
@@ -219,7 +242,7 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
                 ))}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-mute">
+                <TableCell colSpan={9} className="py-10 text-center text-mute">
                   Keine Rechnungen gefunden.
                 </TableCell>
               </TableRow>

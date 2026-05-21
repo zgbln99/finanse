@@ -4,13 +4,9 @@ import { getDashboardStats } from "@/lib/analytics";
 import { getActiveYear } from "@/lib/year";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { CostHeatmap } from "@/components/dashboard/heatmap";
-import {
-  CostTrendChart,
-  KwBarChart,
-  TagPieChart,
-  VendorBarChart,
-} from "@/components/dashboard/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KwBarChart, TagPieChart, VendorBarChart } from "@/components/dashboard/charts";
+import { TrendCard } from "@/components/dashboard/trend-card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TagChip, Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -39,7 +35,13 @@ export default async function DashboardPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Gesamtkosten dieses Jahr" value={s.kpis.totalYear} currency />
+        <KpiCard
+          label="Gesamtkosten dieses Jahr"
+          value={s.kpis.totalYear}
+          currency
+          delta={s.kpis.yoyChange}
+          hint="ggü. Vorjahr"
+        />
         <KpiCard
           label="Gesamtkosten dieser Monat"
           value={s.kpis.totalThisMonth}
@@ -47,11 +49,11 @@ export default async function DashboardPage() {
           delta={s.kpis.momChange}
           hint="ggü. Vormonat"
         />
-        <KpiCard label="Lieferanten" value={s.kpis.vendorCount} hint={`${s.kpis.documentCount} Belege`} />
+        <KpiCard label="Prognose Jahr" value={s.kpis.forecast} currency hint="Hochrechnung" />
         <KpiCard
           label="Offen / Prüfung"
           value={`${s.kpis.pendingCount} / ${s.kpis.reviewCount}`}
-          hint={s.kpis.failedCount > 0 ? `${s.kpis.failedCount} fehlgeschlagen` : "in Bearbeitung"}
+          hint={s.kpis.failedCount > 0 ? `${s.kpis.failedCount} fehlgeschlagen` : `${s.kpis.vendorCount} Lieferanten`}
         />
       </div>
 
@@ -59,10 +61,11 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Kostentrend (14 Monate)</CardTitle>
+            <CardTitle>Kostentrend {year} vs. Vorjahr</CardTitle>
+            <CardDescription>Klick auf einen Monat öffnet die Rechnungen.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CostTrendChart data={s.trend} />
+            <TrendCard data={s.trend} year={year} />
           </CardContent>
         </Card>
         <Card>

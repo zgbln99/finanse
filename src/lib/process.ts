@@ -6,7 +6,9 @@ import { runPdfOcr } from "./ocr";
 import { extractInvoiceFields, type ExtractionResult } from "./extraction";
 import { isOpenAIConfigured } from "./openai";
 import { detectFlags } from "./flags";
+import { applyTagRules } from "./tagrules";
 import { logAudit } from "./audit";
+import { writeFile } from "node:fs/promises";
 import { normalizeVendor } from "./utils";
 import { tagColorFor } from "./tags";
 
@@ -65,6 +67,14 @@ export async function processDocument(documentId: string) {
     const storedPath = await moveToStorage(doc.sourcePath, doc.checksum);
     await prisma.document.update({ where: { id: documentId }, data: { storedPath } });
 
+    // First-page thumbnail for list + command palette previews.
+    if (ocr.images[0]) {
+      await writeFile(
+        path.join(STORAGE_DIR, `${doc.checksum}.png`),
+        Buffer.from(ocr.images[0], "base64"),
+      ).catch(() => {});
+    }
+
     // --- AI extraction ---
     if (!isOpenAIConfigured()) {
       await prisma.document.update({
@@ -79,6 +89,7 @@ export async function processDocument(documentId: string) {
     await logAudit({ documentId, action: "ai_extracted", actor: "ai", meta: extracted as object });
 
     await persistExtraction(documentId, extracted);
+    await applyTagRules(documentId);
     await detectFlags(documentId);
 
     const needsReview = (extracted.confidence ?? 0) < CONFIDENCE_THRESHOLD;

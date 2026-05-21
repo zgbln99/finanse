@@ -15,6 +15,7 @@ export default async function CockpitLayout({ children }: { children: React.Reac
       years={years}
       user={user ? { email: user.email, role: user.role } : null}
       canWrite={canWrite(user?.role)}
+      isAdmin={user?.role === "admin"}
     >
       {children}
     </AppShell>

@@ -71,6 +71,20 @@ model Tag {
   color     String        @default("#2c84e0")
   createdAt DateTime      @default(now())
   documents DocumentTag[]
+  rules     TagRule[]
+}
+
+/// Auto-tagging rule: when a document's vendor (or OCR text) contains `contains`,
+/// the linked tag is applied automatically during processing.
+model TagRule {
+  id        String   @id @default(cuid())
+  contains  String // lowercased substring to match
+  field     String   @default("vendor") // "vendor" | "text"
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([tagId])
 }
 
 model DocumentTag {

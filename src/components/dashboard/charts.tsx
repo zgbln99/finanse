@@ -39,10 +39,24 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-export function CostTrendChart({ data }: { data: { month: string; total: number }[] }) {
+export function CostTrendChart({
+  data,
+  onMonthClick,
+}: {
+  data: { month: string; total: number; prev?: number }[];
+  onMonthClick?: (monthIndex: number) => void;
+}) {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+      <AreaChart
+        data={data}
+        margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
+        onClick={(e: any) => {
+          if (onMonthClick && e && typeof e.activeTooltipIndex === "number") {
+            onMonthClick(e.activeTooltipIndex);
+          }
+        }}
+      >
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.35} />
@@ -54,11 +68,21 @@ export function CostTrendChart({ data }: { data: { month: string; total: number 
         <Tooltip content={<ChartTooltip />} />
         <Area
           type="monotone"
+          dataKey="prev"
+          name="Vorjahr"
+          stroke="#b6b7af"
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
+          fill="none"
+        />
+        <Area
+          type="monotone"
           dataKey="total"
           name="Gesamtkosten"
           stroke={PRIMARY}
           strokeWidth={2}
           fill="url(#trendFill)"
+          style={{ cursor: onMonthClick ? "pointer" : "default" }}
         />
       </AreaChart>
     </ResponsiveContainer>

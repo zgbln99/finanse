@@ -22,3 +22,16 @@ export async function requireWriter(
   }
   return { user };
 }
+
+/** For API routes: requires the admin role. */
+export async function requireAdmin(
+  req: NextRequest,
+): Promise<{ user: SessionUser } | { response: NextResponse }> {
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const user = token ? await verifySessionToken(token) : null;
+  if (!user) return { response: NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 }) };
+  if (user.role !== "admin") {
+    return { response: NextResponse.json({ error: "Nur für Administratoren" }, { status: 403 }) };
+  }
+  return { user };
+}

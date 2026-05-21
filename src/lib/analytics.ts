@@ -36,6 +36,22 @@ export async function getDashboardStats(year: number = new Date().getFullYear())
     orderBy: { invoiceDate: "desc" },
   });
 
+  // Previous year monthly totals for year-over-year comparison.
+  const prevDocs = await prisma.document.findMany({
+    where: {
+      status: { in: [...COUNTED_STATUSES] },
+      invoiceDate: { gte: new Date(year - 1, 0, 1), lt: startOfYear },
+    },
+    select: { bruttoAmount: true, invoiceDate: true },
+  });
+  const prevMonthly = new Array(12).fill(0);
+  let totalPrevYear = 0;
+  for (const d of prevDocs) {
+    const v = toNum(d.bruttoAmount);
+    prevMonthly[(d.invoiceDate as Date).getMonth()] += v;
+    totalPrevYear += v;
+  }
+
   const rows = docs.map((d) => ({
     id: d.id,
     brutto: toNum(d.bruttoAmount),
@@ -86,17 +102,23 @@ export async function getDashboardStats(year: number = new Date().getFullYear())
     .map(([kw, total]) => ({ kw: `KW ${kw}`, total: round(total) }))
     .sort((a, b) => Number(a.kw.slice(3)) - Number(b.kw.slice(3)));
 
-  // Monthly trend (12 months of the selected year, Jan–Dec).
-  const trend: { month: string; total: number; netto: number }[] = [];
+  // Monthly trend (12 months of the selected year) + previous-year overlay.
+  const trend: { month: string; total: number; prev: number }[] = [];
   for (let m = 0; m < 12; m++) {
     const d = new Date(year, m, 1);
     const monthRows = rows.filter((r) => r.date.getMonth() === m);
     trend.push({
       month: d.toLocaleDateString("de-DE", { month: "short" }),
       total: round(sum(monthRows)),
-      netto: round(sum(monthRows)),
+      prev: round(prevMonthly[m]),
     });
   }
+
+  // Forecast for the live year: run-rate from elapsed months × 12.
+  const elapsedMonths = isCurrentYear ? now.getMonth() + 1 : 12;
+  const forecast = elapsedMonths > 0 ? round((totalYear / elapsedMonths) * 12) : 0;
+  const yoyChange =
+    totalPrevYear > 0 ? round(((totalYear - totalPrevYear) / totalPrevYear) * 100) : null;
 
   // Largest invoices.
   const largest = [...rows]
@@ -135,6 +157,9 @@ export async function getDashboardStats(year: number = new Date().getFullYear())
     year,
     kpis: {
       totalYear: round(totalYear),
+      totalPrevYear: round(totalPrevYear),
+      yoyChange,
+      forecast,
       totalThisMonth: round(totalThisMonth),
       totalLastMonth: round(totalLastMonth),
       momChange: momChange == null ? null : round(momChange),
