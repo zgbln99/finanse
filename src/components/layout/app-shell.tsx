@@ -9,6 +9,7 @@ import {
   MessageSquare,
   CalendarCheck,
   Wallet,
+  Building2,
   Boxes,
   Upload,
   LogOut,
@@ -32,6 +33,7 @@ const ROLE_LABEL: Record<string, string> = {
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Rechnungen", icon: FileText },
+  { href: "/lieferanten", label: "Lieferanten", icon: Building2 },
   { href: "/kw", label: "KW-Kontrolle", icon: CalendarCheck },
   { href: "/zahlungen", label: "Zahlungen", icon: Wallet },
   { href: "/review", label: "Prüfung", icon: ShieldCheck },

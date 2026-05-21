@@ -33,6 +33,7 @@ type Filters = {
   type: string;
   tag: string;
   city: string;
+  vendor: string;
   reviewStatus: string;
   dateFrom: string;
   dateTo: string;
@@ -41,7 +42,7 @@ type Filters = {
 };
 
 const EMPTY: Filters = {
-  q: "", status: "", type: "", tag: "", city: "", reviewStatus: "",
+  q: "", status: "", type: "", tag: "", city: "", vendor: "", reviewStatus: "",
   dateFrom: "", dateTo: "", amountMin: "", amountMax: "",
 };
 
@@ -173,6 +174,14 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
             <Input type="number" placeholder="max" value={f.amountMax} onChange={(e) => set("amountMax", e.target.value)} className="h-9 w-20" />
           </div>
 
+          {f.vendor && (
+            <button
+              onClick={() => set("vendor", "")}
+              className="inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1 text-[13px] font-semibold text-on-dark"
+            >
+              Lieferant: {f.vendor} <X className="size-3.5" />
+            </button>
+          )}
           {hasFilters && (
             <Button variant="tertiary" size="sm" onClick={() => setF(EMPTY)}>
               <X className="size-4" /> Zurücksetzen
