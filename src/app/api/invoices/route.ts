@@ -5,6 +5,7 @@ import type { Prisma, DocumentStatus, DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueueIngest } from "@/lib/queue";
 import { requireWriter } from "@/lib/auth-server";
+import { isoWeekRange } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
   const reviewStatus = sp.get("reviewStatus"); // ok | nok | open
   const dateFrom = sp.get("dateFrom");
   const dateTo = sp.get("dateTo");
+  const month = sp.get("month"); // 1-12
+  const kw = sp.get("kw"); // 1-53
   const amountMin = sp.get("amountMin");
   const amountMax = sp.get("amountMax");
   const format = sp.get("format");
@@ -32,9 +35,11 @@ export async function GET(req: NextRequest) {
 
   // Year scope from the global switcher cookie (invoices dated in that year).
   const yearCookie = Number(req.cookies.get("cockpit_year")?.value);
-  if (Number.isInteger(yearCookie) && yearCookie >= 2000 && yearCookie <= 2100) {
-    where.invoiceDate = { gte: new Date(yearCookie, 0, 1), lt: new Date(yearCookie + 1, 0, 1) };
-  }
+  const year =
+    Number.isInteger(yearCookie) && yearCookie >= 2000 && yearCookie <= 2100
+      ? yearCookie
+      : new Date().getFullYear();
+  where.invoiceDate = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
 
   if (status) where.status = status;
   if (type) where.documentType = type;
@@ -44,8 +49,15 @@ export async function GET(req: NextRequest) {
   if (reviewStatus === "ok" || reviewStatus === "nok") where.reviewStatus = reviewStatus;
   if (reviewStatus === "open") where.reviewStatus = null;
 
-  // Date range overrides the year scope when provided.
-  if (dateFrom || dateTo) {
+  // Narrow the year scope: KW > month > explicit date range (priority).
+  const kwNum = kw ? Number(kw) : 0;
+  const monthNum = month ? Number(month) : 0;
+  if (kwNum >= 1 && kwNum <= 53) {
+    const { start, end } = isoWeekRange(year, kwNum);
+    where.invoiceDate = { gte: start, lte: new Date(end.getTime() + 86_399_999) };
+  } else if (monthNum >= 1 && monthNum <= 12) {
+    where.invoiceDate = { gte: new Date(year, monthNum - 1, 1), lt: new Date(year, monthNum, 1) };
+  } else if (dateFrom || dateTo) {
     where.invoiceDate = {
       ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
       ...(dateTo ? { lte: new Date(dateTo) } : {}),

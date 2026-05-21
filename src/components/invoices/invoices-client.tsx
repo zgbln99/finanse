@@ -35,6 +35,8 @@ type Filters = {
   city: string;
   vendor: string;
   reviewStatus: string;
+  month: string;
+  kw: string;
   dateFrom: string;
   dateTo: string;
   amountMin: string;
@@ -43,8 +45,10 @@ type Filters = {
 
 const EMPTY: Filters = {
   q: "", status: "", type: "", tag: "", city: "", vendor: "", reviewStatus: "",
-  dateFrom: "", dateTo: "", amountMin: "", amountMax: "",
+  month: "", kw: "", dateFrom: "", dateTo: "", amountMin: "", amountMax: "",
 };
+
+const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
 const selectCls = "h-9 rounded-md border border-hairline bg-surface-card px-2 text-[14px] text-ink";
 
@@ -160,6 +164,14 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
           <select value={f.city} onChange={(e) => set("city", e.target.value)} className={selectCls}>
             <option value="">Alle Städte</option>
             {opts.cities.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={f.month} onChange={(e) => set("month", e.target.value)} className={selectCls}>
+            <option value="">Alle Monate</option>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+          <select value={f.kw} onChange={(e) => set("kw", e.target.value)} className={selectCls}>
+            <option value="">Alle KW</option>
+            {Array.from({ length: 53 }, (_, i) => i + 1).map((w) => <option key={w} value={w}>KW {w}</option>)}
           </select>
 
           <div className="flex items-center gap-1 text-[13px] text-mute">
