@@ -11,6 +11,7 @@ export const ExtractionSchema = z.object({
   country: z.string().nullable(),
   invoiceNumber: z.string().nullable(),
   invoiceDate: z.string().nullable(), // ISO YYYY-MM-DD
+  dueDate: z.string().nullable(), // Zahlungsziel / Fälligkeit, ISO YYYY-MM-DD
   nettoAmount: z.number().nullable(),
   vatAmount: z.number().nullable(),
   bruttoAmount: z.number().nullable(),
@@ -35,6 +36,7 @@ WICHTIGE REGELN:
 - Betraege als Zahl ohne Tausenderpunkt, Dezimaltrennzeichen als Punkt (z.B. 1234.56).
 - nettoAmount + vatAmount sollten bruttoAmount ergeben; korrigiere offensichtliche OCR-Fehler wenn sicher.
 - invoiceDate im Format YYYY-MM-DD.
+- dueDate: Zahlungsziel/Fälligkeitsdatum (YYYY-MM-DD); aus "zahlbar bis", "fällig am" oder "Zahlungsziel X Tage" ableiten, sonst null.
 - currency als ISO-Code (EUR, USD, ...). Standard EUR.
 - documentType: rechnung, gutschrift, mahnung, angebot, lieferschein oder sonstiges.
 - tags: 1-4 KURZE, deutsche, geschäftliche Schlagworte (lowercase, ein Wort), z.B. mobilfunk, fracht, maut, kraftstoff, fahrzeugwaesche, softwareabo, hosting, fahrzeugpruefung, versicherung, leasing, wartung, energie. Keine Umlaute (ae/oe/ue/ss).
@@ -55,6 +57,7 @@ const JSON_SCHEMA = {
     country: { type: ["string", "null"] },
     invoiceNumber: { type: ["string", "null"] },
     invoiceDate: { type: ["string", "null"] },
+    dueDate: { type: ["string", "null"] },
     nettoAmount: { type: ["number", "null"] },
     vatAmount: { type: ["number", "null"] },
     bruttoAmount: { type: ["number", "null"] },
@@ -75,6 +78,7 @@ const JSON_SCHEMA = {
     "country",
     "invoiceNumber",
     "invoiceDate",
+    "dueDate",
     "nettoAmount",
     "vatAmount",
     "bruttoAmount",

@@ -5,6 +5,7 @@ import { fileChecksum } from "./checksum";
 import { runPdfOcr } from "./ocr";
 import { extractInvoiceFields, type ExtractionResult } from "./extraction";
 import { isOpenAIConfigured } from "./openai";
+import { detectFlags } from "./flags";
 import { logAudit } from "./audit";
 import { normalizeVendor } from "./utils";
 import { tagColorFor } from "./tags";
@@ -78,6 +79,7 @@ export async function processDocument(documentId: string) {
     await logAudit({ documentId, action: "ai_extracted", actor: "ai", meta: extracted as object });
 
     await persistExtraction(documentId, extracted);
+    await detectFlags(documentId);
 
     const needsReview = (extracted.confidence ?? 0) < CONFIDENCE_THRESHOLD;
     await prisma.document.update({
@@ -164,6 +166,7 @@ async function persistExtraction(documentId: string, ex: ExtractionResult) {
       country: ex.country,
       invoiceNumber: ex.invoiceNumber,
       invoiceDate: ex.invoiceDate ? new Date(ex.invoiceDate) : null,
+      dueDate: ex.dueDate ? new Date(ex.dueDate) : null,
       nettoAmount: ex.nettoAmount ?? undefined,
       vatAmount: ex.vatAmount ?? undefined,
       bruttoAmount: ex.bruttoAmount ?? undefined,

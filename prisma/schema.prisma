@@ -139,6 +139,15 @@ model Document {
   // KW review verdict set in the slideshow control: "ok" | "nok" (null = open).
   reviewStatus String?
 
+  // Payment tracking.
+  dueDate DateTime? // Zahlungsziel / Fälligkeit
+  paidAt  DateTime? // set when marked as paid
+
+  // AI / rule-based flags surfaced on the review page.
+  isDuplicate   Boolean @default(false)
+  isAnomaly     Boolean @default(false)
+  anomalyReason String?
+
   // Public, no-login share link token. Null = not shared.
   shareToken String? @unique
 

@@ -104,6 +104,11 @@ export function InvoicesClient({ canWrite = false }: { canWrite?: boolean }) {
               <Download className="size-4" /> CSV
             </Button>
           </a>
+          <a href="/api/export/zip">
+            <Button variant="secondary" size="sm">
+              <Download className="size-4" /> ZIP (Jahr)
+            </Button>
+          </a>
         </div>
       </header>
 

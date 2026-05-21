@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   MessageSquare,
   CalendarCheck,
+  Wallet,
   Boxes,
   Upload,
   LogOut,
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Rechnungen", icon: FileText },
   { href: "/kw", label: "KW-Kontrolle", icon: CalendarCheck },
+  { href: "/zahlungen", label: "Zahlungen", icon: Wallet },
   { href: "/review", label: "Prüfung", icon: ShieldCheck },
   { href: "/chat", label: "AI-Analyse", icon: MessageSquare },
 ];

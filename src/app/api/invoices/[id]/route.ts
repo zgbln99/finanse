@@ -16,6 +16,8 @@ const PatchSchema = z.object({
   country: z.string().nullable().optional(),
   invoiceNumber: z.string().nullable().optional(),
   invoiceDate: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+  paid: z.boolean().optional(),
   nettoAmount: z.number().nullable().optional(),
   vatAmount: z.number().nullable().optional(),
   bruttoAmount: z.number().nullable().optional(),
@@ -103,6 +105,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (body.invoiceDate !== undefined) {
     data.invoiceDate = body.invoiceDate ? new Date(body.invoiceDate) : null;
+  }
+  if (body.dueDate !== undefined) {
+    data.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  }
+  if (body.paid !== undefined) {
+    data.paidAt = body.paid ? new Date() : null;
   }
   if (body.reviewed) {
     data.reviewed = true;

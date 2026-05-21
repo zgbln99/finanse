@@ -24,6 +24,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     vatAmount: doc.vatAmount ? Number(doc.vatAmount) : null,
     bruttoAmount: doc.bruttoAmount ? Number(doc.bruttoAmount) : null,
     invoiceDate: doc.invoiceDate ? doc.invoiceDate.toISOString() : null,
+    dueDate: doc.dueDate ? doc.dueDate.toISOString() : null,
+    paidAt: doc.paidAt ? doc.paidAt.toISOString() : null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
     reviewedAt: doc.reviewedAt ? doc.reviewedAt.toISOString() : null,

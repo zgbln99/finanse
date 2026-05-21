@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ShieldCheck, AlertTriangle, ChevronRight } from "lucide-react";
+import { ShieldCheck, AlertTriangle, ChevronRight, Flag, Copy } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, TagChip } from "@/components/ui/badge";
+import { ReprocessButtons } from "@/components/review/reprocess-buttons";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 const THRESHOLD = Number(process.env.AI_CONFIDENCE_THRESHOLD ?? "0.8");
 
 export default async function ReviewPage() {
-  const [needsReview, failed] = await Promise.all([
+  const [needsReview, failed, flagged] = await Promise.all([
     prisma.document.findMany({
       where: { status: "needs_review" },
       orderBy: { confidence: "asc" },
@@ -21,6 +22,11 @@ export default async function ReviewPage() {
       where: { status: "failed" },
       orderBy: { updatedAt: "desc" },
       take: 50,
+    }),
+    prisma.document.findMany({
+      where: { OR: [{ isAnomaly: true }, { isDuplicate: true }] },
+      orderBy: { invoiceDate: "desc" },
+      take: 100,
     }),
   ]);
 
@@ -33,7 +39,43 @@ export default async function ReviewPage() {
           Dokumente unterhalb der Konfidenzschwelle von {Math.round(THRESHOLD * 100)}% sowie
           fehlgeschlagene Verarbeitungen. Korrekturen trainieren das AI-Korrektur-Gedächtnis.
         </p>
+        <div className="mt-3">
+          <ReprocessButtons />
+        </div>
       </header>
+
+      {flagged.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Flag className="size-4 text-accent-red" />
+              Auffällige Rechnungen ({flagged.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {flagged.map((d) => (
+              <Link
+                key={d.id}
+                href={`/invoices/${d.id}`}
+                className="flex items-center justify-between rounded-md border border-hairline-soft px-3 py-2.5 hover:bg-surface-soft"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-ink">{d.vendorName ?? "Unbekannt"}</span>
+                    {d.isDuplicate && <Badge variant="purple"><Copy className="size-3" /> Duplikat</Badge>}
+                    {d.isAnomaly && <Badge variant="red"><AlertTriangle className="size-3" /> Anomalie</Badge>}
+                  </div>
+                  <div className="text-[12px] text-mute">{d.anomalyReason ?? ""}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-ink">{formatCurrency(d.bruttoAmount ? Number(d.bruttoAmount) : null)}</span>
+                  <ChevronRight className="size-4 text-mute" />
+                </div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -49,6 +49,7 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
       currency: doc.currency,
       documentType: doc.documentType,
       isRecurring: doc.isRecurring,
+      dueDate: doc.dueDate ? new Date(doc.dueDate).toISOString() : null,
       note: doc.note ?? null,
       tags: tagInput.split(",").map((t) => t.trim()).filter(Boolean),
       reviewed: markReviewed,
@@ -98,6 +99,16 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
     setSaving(false);
   }
 
+  async function togglePaid() {
+    const paid = !doc.paidAt;
+    const res = await fetch(`/api/invoices/${doc.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid }),
+    });
+    if (res.ok) setDoc((d: Detail) => ({ ...d, paidAt: paid ? new Date().toISOString() : null }));
+  }
+
   const confidencePct = doc.confidence != null ? Math.round(doc.confidence * 100) : null;
 
   return (
@@ -116,15 +127,33 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {doc.isDuplicate && <Badge variant="purple">Duplikat</Badge>}
+          {doc.isAnomaly && <Badge variant="red">Anomalie</Badge>}
+          {doc.paidAt ? (
+            <Badge variant="green"><Check className="size-3" /> bezahlt</Badge>
+          ) : (
+            <Badge variant="neutral">offen</Badge>
+          )}
           <Badge variant={STATUS_VARIANT[doc.status]}>{STATUS_LABEL[doc.status]}</Badge>
           {confidencePct != null && (
             <Badge variant={confidencePct >= 80 ? "green" : "purple"}>
               <Sparkles className="size-3" /> {confidencePct}% Konfidenz
             </Badge>
           )}
+          {canWrite && (
+            <Button size="sm" variant="tertiary" onClick={togglePaid}>
+              {doc.paidAt ? "Als offen markieren" : "Als bezahlt markieren"}
+            </Button>
+          )}
         </div>
       </div>
+
+      {doc.anomalyReason && (
+        <div className="rounded-md border border-accent-red-soft bg-accent-red-soft/40 px-4 py-2 text-[13px] text-ink">
+          ⚠️ {doc.anomalyReason}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Preview */}
@@ -177,6 +206,13 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
                 />
               </Field>
             </div>
+            <Field label="Fällig am (Zahlungsziel)">
+              <Input
+                type="date"
+                value={doc.dueDate ? String(doc.dueDate).slice(0, 10) : ""}
+                onChange={(e) => set("dueDate", e.target.value)}
+              />
+            </Field>
             <div className="grid grid-cols-3 gap-3">
               <Field label="Netto">
                 <Input type="number" step="0.01" value={doc.nettoAmount ?? ""} onChange={(e) => set("nettoAmount", e.target.value)} />
