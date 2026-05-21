@@ -189,6 +189,7 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
               <div className="max-h-[600px] overflow-auto">
                 <RegionPicker
                   documentId={doc.id}
+                  pageCount={doc.pageCount ?? 1}
                   onApply={(field, value) => set(field, value)}
                 />
               </div>

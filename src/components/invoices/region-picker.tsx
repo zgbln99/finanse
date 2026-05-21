@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { MousePointerSquareDashed, Loader2 } from "lucide-react";
+import { MousePointerSquareDashed, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 
@@ -16,9 +16,11 @@ const TARGETS: { value: Target; label: string }[] = [
 
 export function RegionPicker({
   documentId,
+  pageCount = 1,
   onApply,
 }: {
   documentId: string;
+  pageCount?: number;
   onApply: (field: Target, value: number) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -27,6 +29,15 @@ export function RegionPicker({
   const [target, setTarget] = useState<Target>("bruttoAmount");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ raw: string; amount: number | null } | null>(null);
+  const [page, setPage] = useState(1);
+  const total = Math.max(1, pageCount);
+
+  function goPage(p: number) {
+    const next = Math.min(total, Math.max(1, p));
+    setPage(next);
+    setRect(null);
+    setResult(null);
+  }
 
   function rel(e: React.MouseEvent) {
     const b = boxRef.current!.getBoundingClientRect();
@@ -63,7 +74,7 @@ export function RegionPicker({
     const res = await fetch(`/api/invoices/${documentId}/ocr-region`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...rect, page: 1 }),
+      body: JSON.stringify({ ...rect, page }),
     });
     const data = await res.json();
     setBusy(false);
@@ -79,8 +90,30 @@ export function RegionPicker({
     <div className="flex flex-col gap-3 p-3">
       <p className="flex items-center gap-2 text-[13px] text-mute">
         <MousePointerSquareDashed className="size-4" />
-        Ziehe ein Rechteck über den Betrag (Seite 1), wähle das Zielfeld und klicke „Auslesen".
+        Ziehe ein Rechteck über den Betrag, wähle das Zielfeld und klicke „Auslesen".
       </p>
+
+      {/* Page navigation for multi-page invoices */}
+      <div className="flex items-center justify-center gap-2">
+        <Button size="sm" variant="secondary" onClick={() => goPage(page - 1)} disabled={page <= 1}>
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="text-[13px] font-medium text-ink">
+          Seite
+          <input
+            type="number"
+            min={1}
+            max={total}
+            value={page}
+            onChange={(e) => goPage(Number(e.target.value))}
+            className="mx-2 w-14 rounded-md border border-hairline bg-surface-card px-2 py-1 text-center"
+          />
+          / {total}
+        </span>
+        <Button size="sm" variant="secondary" onClick={() => goPage(page + 1)} disabled={page >= total}>
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
 
       <div
         ref={boxRef}
@@ -91,7 +124,13 @@ export function RegionPicker({
         onMouseLeave={onUp}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/invoices/${documentId}/thumb`} alt="Rechnung Seite 1" className="pointer-events-none w-full" draggable={false} />
+        <img
+          key={page}
+          src={`/api/invoices/${documentId}/page/${page}`}
+          alt={`Rechnung Seite ${page}`}
+          className="pointer-events-none w-full"
+          draggable={false}
+        />
         {rect && (
           <div
             className="pointer-events-none absolute border-2 border-accent-blue bg-accent-blue/15"

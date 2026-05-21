@@ -63,6 +63,22 @@ export async function ocrRegion(
   }
 }
 
+/** Render a single PDF page to a PNG buffer (on-demand page preview). */
+export async function renderPdfPage(pdfPath: string, page = 1, dpi = 150): Promise<Buffer | null> {
+  const dir = await mkdtemp(path.join(tmpdir(), "page-"));
+  try {
+    await exec("pdftoppm", [
+      "-png", "-r", String(dpi), "-f", String(page), "-l", String(page),
+      "-singlefile", pdfPath, path.join(dir, "p"),
+    ]);
+    return await readFile(path.join(dir, "p.png"));
+  } catch {
+    return null;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 /** Parse a German/European monetary string ("1.234,56 €") into a number. */
 export function parseGermanAmount(s: string): number | null {
   const matches = s.match(/-?[\d.,]+/g);
