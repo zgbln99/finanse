@@ -33,10 +33,14 @@ export async function POST(req: NextRequest) {
   });
 
   const res = NextResponse.json({ ok: true, role: user.role });
+  // Only mark the cookie Secure when the request actually arrived over HTTPS,
+  // otherwise the browser drops it on plain http:// and login loops forever.
+  const proto = req.headers.get("x-forwarded-proto") ?? new URL(req.url).protocol.replace(":", "");
+  const secure = proto === "https";
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: MAX_AGE_SECONDS,
   });
