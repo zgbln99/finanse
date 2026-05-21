@@ -17,6 +17,11 @@ export type OcrResult = {
 const MAX_RENDER_PAGES = 3;
 const RENDER_DPI = 220;
 
+/** Strip NUL (0x00) bytes that OCR can emit — Postgres TEXT columns reject them. */
+function stripNul(s: string): string {
+  return s.split(String.fromCharCode(0)).join("");
+}
+
 /**
  * OCR pipeline for invoices:
  *  1. Read the digital text layer with pdf-parse (instant, lossless).
@@ -66,7 +71,12 @@ export async function runPdfOcr(
   }
 
   await cleanup(rendered);
-  return { text, engine, pageCount: pageCount ?? (rendered.length || null), images };
+  return {
+    text: stripNul(text),
+    engine,
+    pageCount: pageCount ?? (rendered.length || null),
+    images,
+  };
 }
 
 type Rendered = { path: string; buffer: Buffer; dir: string };
@@ -94,9 +104,7 @@ async function rasterize(buf: Buffer): Promise<Rendered[]> {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
     return [];
   }
-  const files = (await readdir(dir))
-    .filter((f) => f.endsWith(".png"))
-    .sort();
+  const files = (await readdir(dir)).filter((f) => f.endsWith(".png")).sort();
   const out: Rendered[] = [];
   for (const f of files.slice(0, MAX_RENDER_PAGES)) {
     const p = path.join(dir, f);
