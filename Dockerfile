@@ -32,7 +32,12 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+# OCR toolchain for the interactive "read amount from selection" feature
+# (region crop via poppler + Tesseract with German/English data).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      openssl ca-certificates \
+      poppler-utils \
+      tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs

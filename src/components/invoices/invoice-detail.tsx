@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, ScanText, Save, History, Sparkles, Link2, Copy, Check, X, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, ScanText, Save, History, Sparkles, Link2, Copy, Check, X, RefreshCw, MousePointerSquareDashed } from "lucide-react";
+import { RegionPicker } from "./region-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, TagChip } from "@/components/ui/badge";
@@ -23,7 +24,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; canWrite?: boolean }) {
   const [doc, setDoc] = useState<Detail>(initial);
-  const [tab, setTab] = useState<"pdf" | "ocr">("pdf");
+  const [tab, setTab] = useState<"pdf" | "ocr" | "mark">("pdf");
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState<string>(
     (doc.tags ?? []).map((t: any) => t.name).join(", "),
@@ -165,18 +166,32 @@ export function InvoiceDetail({ initial, canWrite = false }: { initial: Detail; 
             <Button variant={tab === "ocr" ? "secondary" : "tertiary"} size="sm" onClick={() => setTab("ocr")}>
               <ScanText className="size-4" /> OCR-Text
             </Button>
+            {canWrite && (
+              <Button variant={tab === "mark" ? "secondary" : "tertiary"} size="sm" onClick={() => setTab("mark")}>
+                <MousePointerSquareDashed className="size-4" /> Betrag markieren
+              </Button>
+            )}
           </div>
           <CardContent className="p-0">
-            {tab === "pdf" ? (
+            {tab === "pdf" && (
               <iframe
                 src={`/api/invoices/${doc.id}/file`}
                 className="h-[600px] w-full bg-surface-soft"
                 title="PDF Vorschau"
               />
-            ) : (
+            )}
+            {tab === "ocr" && (
               <pre className="h-[600px] overflow-auto whitespace-pre-wrap p-4 font-mono text-[12px] leading-relaxed text-body">
                 {doc.ocrText || "Kein OCR-Text vorhanden."}
               </pre>
+            )}
+            {tab === "mark" && (
+              <div className="max-h-[600px] overflow-auto">
+                <RegionPicker
+                  documentId={doc.id}
+                  onApply={(field, value) => set(field, value)}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
